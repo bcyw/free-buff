@@ -935,10 +935,15 @@
     }
 
     function renderQuotaBlock(quotaByModel, boundModel) {
-      // 交叉展示：全部模型 + limit/recentCount 实时数据。
-      // 未列入 RATE_LIMITS 的 unlimited 模型没有 quota 字段是官方设计（see
-      // CodebuffAI/codebuff web/src/server/free-session/public-api.ts），这里
-      // 用 model_metadata 标记「无限额度」或「受每日额度限制」。
+      // 交叉展示：全部模型 + 服务端实时 quota 数据。
+      // 准确标签策略（按官方：
+      //   web/src/server/free-session/public-api.ts 的 RATE_LIMITS 表 + onlyUsedRateLimitsByModel）：
+      //   1. 有 quota_by_model 数据且 limit > 0 → 进度条「已用 X/Y」
+      //   2. 有 quota_by_model 数据且 limit == 0 → 「额度 0/0 · 当前不可用」
+      //   3. 无 quota_by_model 数据 + premium:true → 「共享池·今日未消耗」
+      //   4. 无 quota_by_model 数据 + premium:false → 「无独立额度·未列入限额表」
+      // 注意：「无独立额度」等同官方「unlimited」语义（MiMo 2.5 当前的官方版 unlimited
+      // 模型），但不应被读成「完全无限制」——当前会话级限制仍存在（pool-level）。
       const qMap = quotaByModel || {};
       // Include server-reported quota rows even when the model is hidden from
       // the public catalog (for example GLM, which is currently blacklisted).
@@ -956,7 +961,6 @@
         const meta = modelMetadata[m] || {};
         const q = qMap[m] || null;
         const isPremium = !!meta.premium;
-        const isFree = !!meta.free;
         const isBound = (boundFull && m === boundFull) || (boundShort && shortName === boundShort);
         const boundTag = isBound ? '<span class="badge bg-primary" style="font-size:0.55rem;margin-left:4px;vertical-align:middle">使用中</span>' : '';
 
@@ -979,21 +983,23 @@
             <span class="q-count drained">额度 0/0 · 当前不可用</span>
           </div>`;
         }
-        if (!isPremium || isFree) {
-          // unlimited / 免费无上限
+        if (!isPremium) {
+          // Server did not list this model in RATE_LIMITS — official semantics
+          // (Minimax is cheap enough to leave unlimited). Fall through MiMo 2.5
+          // is the explicitly-designated "unlimited" model as of 2026-08-18.
           const label = meta.displayName || shortName;
           return `<div class="quota-row${isBound ? ' bound' : ''}">
             <span class="q-model" title="${escapeHtml(m)}">${escapeHtml(label)}${boundTag}</span>
             <span class="q-bar"><span class="q-bar-fill unlimited"></span></span>
-            <span class="q-count unlimited">无限额度</span>
+            <span class="q-count unlimited">无独立额度</span>
           </div>`;
         }
-        // premium 且今日未消耗（被 onlyUsedRateLimitsByModel 过滤）
+        // Premium model not seen today (filtered by onlyUsedRateLimitsByModel).
         const label = meta.displayName || shortName;
         return `<div class="quota-row${isBound ? ' bound' : ''}">
           <span class="q-model" title="${escapeHtml(m)}">${escapeHtml(label)}${boundTag}</span>
           <span class="q-bar"><span class="q-bar-fill fresh"></span></span>
-          <span class="q-count fresh">受每日额度限制 · 今日未消耗</span>
+          <span class="q-count fresh">共享池 · 今日未消耗</span>
         </div>`;
       }).join('');
 
@@ -1001,7 +1007,7 @@
       const firstReset = tracked.find(q => q.resetAt)?.resetAt;
       const resetLine = firstReset ? `<div class="quota-reset">重置于 ${new Date(firstReset).toLocaleString()}</div>` : '';
       const totalUsed = tracked.filter(q => (q.recentCount ?? 0) > 0).length;
-      const note = `<div class="quota-reset" style="margin-top:6px">限额仅限制新会话准入，已运行的会话不受影响</div>`;
+      const note = `<div class="quota-reset" style="margin-top:6px">进度条来自官方 RATE_LIMITS；未列入该表 ⇒ 服务端未发放独立额度（官方 unlimited：MiMo 2.5 一行）</div>`;
       const title = `模型配额（共 ${list.length} 个 · ${totalUsed} 个今日有消耗）`;
       if (rows === '') return '';
       return `<div class="quota-block"><div class="quota-title">${title}</div>${rows}${resetLine}${note}</div>`;
