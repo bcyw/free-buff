@@ -325,6 +325,73 @@
     .quota-row .q-bar-fill.fresh { background: rgba(88, 166, 255, 0.25); width: 100% !important; }
     .quota-row .q-count.unlimited { flex-basis: 72px; color: rgba(255, 255, 255, 0.45); }
     .quota-row .q-count.fresh { flex-basis: 190px; color: rgba(88, 166, 255, 0.85); font-size: 0.68rem; }
+    .timezone-bar {
+      position: relative;
+      border-radius: 10px;
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+    .timezone-content {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      padding: 14px 12px;
+    }
+    @media (max-width: 768px) {
+      .timezone-content { grid-template-columns: repeat(2, 1fr); }
+    }
+    .tz-cell {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 4px 6px;
+      border-right: 1px solid rgba(255, 255, 255, 0.06);
+      min-width: 0;
+    }
+    .tz-cell:last-child { border-right: none; }
+    .tz-name {
+      font-size: 0.7rem;
+      color: rgba(255, 255, 255, 0.55);
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+    .tz-clock {
+      font-size: 1.35rem;
+      font-weight: 600;
+      color: #e6edf3;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.04em;
+    }
+    .tz-meta {
+      font-size: 0.66rem;
+      color: rgba(255, 255, 255, 0.42);
+      margin-top: 4px;
+      text-align: center;
+      white-space: nowrap;
+    }
+    .tz-meta.reset-soon { color: #f0883e; }
+    .tz-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      margin-top: 4px;
+    }
+    .tz-badge.available {
+      background: rgba(63, 185, 80, 0.18);
+      color: #3fb950;
+      border: 1px solid rgba(63, 185, 80, 0.35);
+    }
+    .tz-badge.unavailable {
+      background: rgba(248, 81, 73, 0.13);
+      color: #f85149;
+      border: 1px solid rgba(248, 81, 73, 0.30);
+    }
     .model-tag {
       display: inline-flex;
       align-items: center;
@@ -506,6 +573,32 @@
       </div>
       <div class="col-6 col-md-2"><div class="stats-card card h-100 d-flex flex-column" data-glass><div class="card-content flex-grow-1 justify-content-center align-items-center d-flex flex-column" style="padding:10px"><div class="stats-value" id="totalModels">0</div><div class="stats-label">模型数</div></div></div></div>
       <div class="col-6 col-md-2"><div class="stats-card card h-100 d-flex flex-column" data-glass><div class="card-content flex-grow-1 justify-content-center align-items-center d-flex flex-column" style="padding:10px"><div class="stats-value" id="countryCode">-</div><div class="stats-label">地区</div></div></div></div>
+    </div>
+
+    <div class="timezone-bar card" data-glass>
+      <div class="glass-panel"></div>
+      <div class="card-content timezone-content">
+        <div class="tz-cell">
+          <div class="tz-name"><i class="bi bi-globe-asia-australia me-1"></i>北京时间</div>
+          <div class="tz-clock" id="tzBj">--:--:--</div>
+          <div class="tz-meta" id="tzBjDate">-</div>
+        </div>
+        <div class="tz-cell">
+          <div class="tz-name"><i class="bi bi-clock-history me-1"></i>US Pacific (PT)</div>
+          <div class="tz-clock" id="tzPt">--:--:--</div>
+          <div class="tz-meta" id="tzPtMeta">重置倒计时 -</div>
+        </div>
+        <div class="tz-cell">
+          <div class="tz-name"><i class="bi bi-clock-history me-1"></i>US Eastern (ET)</div>
+          <div class="tz-clock" id="tzEt">--:--:--</div>
+          <div class="tz-meta" id="tzEtMeta">Fable 时段基准</div>
+        </div>
+        <div class="tz-cell">
+          <div class="tz-name">Fable 当前</div>
+          <div id="tzFableStatus" class="tz-badge">--</div>
+          <div class="tz-meta">9am ET – 5pm PT</div>
+        </div>
+      </div>
     </div>
 
     <div class="row">
@@ -1287,14 +1380,96 @@
       return div.innerHTML;
     }
 
+    // --- Timezone bar: live Beijing / US Pacific / US Eastern clocks + fable ---
+    // The official Freebuff premium-quota period is "pacific_day", with reset at
+    // America/Los_Angeles midnight. Fable (`claude-fable-5`) is only reachable
+    // during the "deployment hours" window 9am ET – 5pm PT (官方
+    // FREEBUFF_DEPLOYMENT_HOURS_LABEL). Showing all three zones side-by-side
+    // lets a user on a US proxy node reason about quota resets and fable
+    // availability in their local (Beijing) time, without doing the arithmetic
+    // by hand.
+    const _tzFmtCache = new Map();
+    function tzParts(tz, fields) {
+      const key = tz + '|' + fields.join(',');
+      let fmt = _tzFmtCache.get(key);
+      if (!fmt) {
+        fmt = new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour12: false, ...Object.fromEntries(fields.map(f => [f, '2-digit'])) });
+        _tzFmtCache.set(key, fmt);
+      }
+      const parts = fmt.formatToParts(new Date());
+      const out = {};
+      for (const p of parts) if (p.type !== 'literal') out[p.type] = p.value;
+      return out;
+    }
+    function fmtTzClock(tz) {
+      const p = tzParts(tz, ['hour', 'minute', 'second']);
+      return `${p.hour}:${p.minute}:${p.second}`;
+    }
+    function fmtTzDate(tz) {
+      const fmt = _tzFmtCache.get(tz + '|date') || new Intl.DateTimeFormat('zh-CN', { timeZone: tz, month: 'short', day: 'numeric', weekday: 'short' });
+      _tzFmtCache.set(tz + '|date', fmt);
+      return fmt.format(new Date());
+    }
+    function ptResetCountdown() {
+      // Seconds elapsed since the most recent PT midnight; subtract from 24h
+      // to get the countdown. This avoids needing a DST-aware UTC offset.
+      const p = tzParts('America/Los_Angeles', ['hour', 'minute', 'second']);
+      const elapsed = (+p.hour % 24) * 3600 + (+p.minute) * 60 + (+p.second);
+      const remain = 86400 - elapsed;
+      const h = Math.floor(remain / 3600);
+      const m = Math.floor((remain % 3600) / 60);
+      return { h, m, s: remain };
+    }
+    function fableAvailability() {
+      // Beijing 21:00 — next-day 08:00, Mon–Fri only. Using the local Beijing
+      // weekday/hour (no DST involved) keeps the gate stable.
+      const fmt = _tzFmtCache.get('bj|gate') || new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Shanghai', hour12: false, weekday: 'short', hour: '2-digit', minute: '2-digit' });
+      _tzFmtCache.set('bj|gate', fmt);
+      const parts = fmt.formatToParts(new Date());
+      const obj = {};
+      for (const p of parts) if (p.type !== 'literal') obj[p.type] = p.value;
+      const weekday = obj.weekday || '';
+      const total = (+obj.hour % 24) * 60 + (+obj.minute);
+      const isWeekday = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].includes(weekday);
+      const inNight = total >= 21 * 60 || total < 8 * 60;
+      return { available: isWeekday && inNight, weekday, hour: +obj.hour, minute: +obj.minute };
+    }
+    function updateTimezones() {
+      const bjEl = document.getElementById('tzBj');
+      const ptEl = document.getElementById('tzPt');
+      const etEl = document.getElementById('tzEt');
+      const bjDateEl = document.getElementById('tzBjDate');
+      const ptMetaEl = document.getElementById('tzPtMeta');
+      const etMetaEl = document.getElementById('tzEtMeta');
+      const fableEl = document.getElementById('tzFableStatus');
+      if (bjEl) bjEl.textContent = fmtTzClock('Asia/Shanghai');
+      if (ptEl) ptEl.textContent = fmtTzClock('America/Los_Angeles');
+      if (etEl) etEl.textContent = fmtTzClock('America/New_York');
+      if (bjDateEl) bjDateEl.textContent = fmtTzDate('Asia/Shanghai');
+      if (ptMetaEl) {
+        const r = ptResetCountdown();
+        const soon = r.s < 3600;
+        ptMetaEl.textContent = `距 quota 重置 ${r.h}h ${r.m}m`;
+        ptMetaEl.className = 'tz-meta' + (soon ? ' reset-soon' : '');
+      }
+      if (etMetaEl) etMetaEl.textContent = fmtTzDate('America/New_York');
+      if (fableEl) {
+        const f = fableAvailability();
+        if (f.available) { fableEl.className = 'tz-badge available'; fableEl.textContent = '可用'; }
+        else { fableEl.className = 'tz-badge unavailable'; fableEl.textContent = '不可用'; }
+      }
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
       initLiquidGlass();
       try { const cached = localStorage.getItem('adsEnabled'); if (cached === 'false') { adsEnabled = false; const t = document.getElementById('adsToggleEnv'); if (t) t.checked = false; } } catch (e) {}
       loadConfiguration().then(() => { fetchBingWallpaper(); if (adsEnabled) fetchAds().then(() => { renderAdInTokenCard(); setTimeout(() => initLiquidGlass(), 100); }); else { renderAdInTokenCard(); setTimeout(() => initLiquidGlass(), 100); } });
       checkHealth();
+      updateTimezones();
       setInterval(() => checkHealth(true), 5000);
       setInterval(() => rotateAd(), 30000);
       setInterval(() => updateRemainingDisplay(), 1000);
+      setInterval(updateTimezones, 1000);
     });
   </script>
 </body>
