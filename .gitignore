@@ -1,0 +1,17 @@
+# Runtime state — contains live Freebuff tokens (tokens.json is written 0600),
+# config.json AUTH_TOKENS, and persisted session state. Never commit.
+.config/
+
+# Dependencies
+node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment files
+.env
+.env.*
+
+# OS / editor noise
+.DS_Store
