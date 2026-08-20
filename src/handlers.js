@@ -359,6 +359,7 @@ async function proxyChatRequest(res, payload, requestedModel, writeError, writeU
       // tool_choice (agent-runtime defaults `{type:"auto"}` → "auto"); an
       // explicit client tool_choice is honored as-is.
       if (payload.tool_choice === undefined) cloned.tool_choice = 'auto';
+      else if (typeof payload.tool_choice === 'string') cloned.tool_choice = payload.tool_choice;
       else cloned.tool_choice = cloneMap(payload.tool_choice);
     }
 
