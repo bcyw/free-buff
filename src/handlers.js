@@ -99,7 +99,8 @@ async function handleHealthz(req, res) {
   const config = state.config;
   const tokenPool = state.tokenPool;
   const modelRegistry = state.modelRegistry;
-  const tokenState = tokenPool.tokens.map((token, idx) => {
+  const tokenState = [];
+  for (const token of tokenPool.tokens) {
     const maskedToken = token.substring(0, 8) + '...' + token.substring(token.length - 4);
     const allSessions = [];
     for (const [key, session] of tokenPool.sessions.entries()) {
@@ -107,24 +108,32 @@ async function handleHealthz(req, res) {
     }
     const bestSession = allSessions.find(s => s.status === 'active') || allSessions[0] || null;
     const lockedModel = tokenPool.lockedModels.get(token) || null;
-    return {
-      name: `token-${idx + 1}`,
+    // Zero-cost quota snapshot (refreshTier GET, cached 30s). Fills
+    // rateLimitsByModel when the POST admission body omitted it.
+    const snap = await tokenPool.refreshQuotaSnapshot(token);
+    const quotaByModel = bestSession?.rateLimitsByModel || snap?.rateLimitsByModel || null;
+    tokenState.push({
+      name: `token-${tokenPool.tokens.indexOf(token) + 1}`,
       token: maskedToken,
       session_status: bestSession?.status || 'none',
       session_instance_id: bestSession?.instanceID || null,
       session_expires_at: bestSession?.expiresAt || null,
       country_code: bestSession?.countryCode || state.detectedCountry || null,
-      access_tier: bestSession?.accessTier || null,
+      access_tier: bestSession?.accessTier || snap?.accessTier || null,
       country_block_reason: bestSession?.countryBlockReason || null,
       remaining_ms: bestSession?.remainingMs || null,
+      // Current server-bound model (the model the live session is admitted on).
+      model: bestSession?.model || null,
       locked_model: lockedModel,
       // Official quota visibility (SessionManager snapshot quotaByModel):
       // per-model limit / recentCount / resetAt from the session body.
-      quota_by_model: bestSession?.rateLimitsByModel || null,
+      quota_by_model: quotaByModel,
       quota: bestSession?.quota || null,
+      desktop_session_counts: snap?.desktopSessionCounts || null,
+      referral: snap?.referral || null,
       runs: []
-    };
-  });
+    });
+  }
   writeJSON(res, 200, {
     ok: true, started_at: state.startTime.toISOString(),
     uptime_sec: Math.floor((Date.now() - state.startTime.getTime()) / 1000),

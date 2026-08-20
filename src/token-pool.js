@@ -7,6 +7,9 @@ const path = require('path');
 
 const { SESSION_HEARTBEAT_INTERVAL_MS } = require('./constants');
 
+// TTL for the zero-cost quota snapshot cache (refreshQuotaSnapshot).
+const QUOTA_CACHE_TTL_MS = 30 * 1000;
+
 // Persisted-session store: instanceIds survive restarts (official
 // persistedInstanceId semantics). On boot a restored session is treated as
 // "needs re-validation": ensureSession runs a GET before reusing it, so a
@@ -27,6 +30,7 @@ class TokenPool {
     this.bannedTokens = new Map(); // token -> { reason, at }
     this.cooldowns = new Map(); // token -> cooldownUntilMs (429 rate-limit)
     this.invalidTokens = new Map(); // token -> { reason, at } (401, sign-in expired)
+    this.quotaCache = new Map(); // token -> { at, rateLimitsByModel, accessTier, desktopSessionCounts }
     this._restorePersistedSessions();
   }
 
@@ -453,6 +457,32 @@ class TokenPool {
 
   async getLockedModel(token) {
     return await this.withLock(async () => this.lockedModels.get(token) || null);
+  }
+
+  // Zero-cost quota snapshot (official refreshTier GET with the
+  // x-freebuff-include-unused-rate-limits: 1 header). The POST admission body
+  // omits per-model rate limits, so this is the non-consuming path that fills
+  // `rateLimitsByModel` for the UI. Cached for QUOTA_CACHE_TTL_MS so a
+  // dashboard poll doesn't hammer upstream; on cache hit nothing is fetched.
+  async refreshQuotaSnapshot(token) {
+    const cached = this.quotaCache.get(token);
+    if (cached && Date.now() - cached.at < QUOTA_CACHE_TTL_MS) return cached;
+    try {
+      const rt = await this.client.refreshSession(token);
+      const snap = {
+        at: Date.now(),
+        rateLimitsByModel: (rt && rt.rateLimitsByModel) || null,
+        accessTier: (rt && rt.accessTier) || null,
+        desktopSessionCounts: (rt && rt.desktopSessionCounts) || null,
+        referral: (rt && rt.referral) || null,
+      };
+      this.quotaCache.set(token, snap);
+      return snap;
+    } catch (e) {
+      // Refresh failed (network): return any stale snapshot rather than null so
+      // the UI keeps showing the last known quota.
+      return cached || null;
+    }
   }
 
   async setLockedModel(token, model) {

@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Freebuff2OpenCode&thinsp;Dashboard</title>
+  <title>Freebuff2OpenCode 控制台</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
   <style>
@@ -468,12 +468,12 @@
       <div class="card-content px-2">
         <div class="d-flex justify-content-between align-items-center">
           <div>
-            <h4 class="mb-0"><i class="bi bi-lightning-charge-fill me-2"></i>Freebuff2OpenCode Dashboard</h4>
+            <h4 class="mb-0"><i class="bi bi-lightning-charge-fill me-2"></i>Freebuff2OpenCode 控制台</h4>
           </div>
           <div class="text-end">
             <div>
               <span id="statusIndicator" class="status-indicator status-unknown"></span>
-              <span id="statusText" class="fw-medium">Checking...</span>
+              <span id="statusText" class="fw-medium">检查中...</span>
             </div>
           </div>
         </div>
@@ -486,21 +486,21 @@
           <div class="glass-panel"></div>
           <div class="ad-card card-content flex-grow-1 d-flex flex-column">
             <div class="ad-header-bar">
-              <span class="ad-label" id="adCounterLabel">Ad</span>
+              <span class="ad-label" id="adCounterLabel">广告</span>
             </div>
             <div class="ad-glass-box">
-              <button class="ad-arrow ad-arrow-left" onclick="prevAd()" title="Previous ad"><i class="bi bi-chevron-left"></i></button>
+              <button class="ad-arrow ad-arrow-left" onclick="prevAd()" title="上一条广告"><i class="bi bi-chevron-left"></i></button>
               <div class="ad-glass-inner">
                 <div id="adSlidesContainer"></div>
               </div>
-              <button class="ad-arrow ad-arrow-right" onclick="nextAd()" title="Next ad"><i class="bi bi-chevron-right"></i></button>
+              <button class="ad-arrow ad-arrow-right" onclick="nextAd()" title="下一条广告"><i class="bi bi-chevron-right"></i></button>
             </div>
             <div id="adDots" style="display:flex;justify-content:center;gap:4px;margin-top:6px"></div>
           </div>
         </div>
       </div>
-      <div class="col-6 col-md-2"><div class="stats-card card h-100 d-flex flex-column" data-glass><div class="card-content flex-grow-1 justify-content-center align-items-center d-flex flex-column" style="padding:10px"><div class="stats-value" id="totalModels">0</div><div class="stats-label">Models</div></div></div></div>
-      <div class="col-6 col-md-2"><div class="stats-card card h-100 d-flex flex-column" data-glass><div class="card-content flex-grow-1 justify-content-center align-items-center d-flex flex-column" style="padding:10px"><div class="stats-value" id="countryCode">-</div><div class="stats-label">Country</div></div></div></div>
+      <div class="col-6 col-md-2"><div class="stats-card card h-100 d-flex flex-column" data-glass><div class="card-content flex-grow-1 justify-content-center align-items-center d-flex flex-column" style="padding:10px"><div class="stats-value" id="totalModels">0</div><div class="stats-label">模型数</div></div></div></div>
+      <div class="col-6 col-md-2"><div class="stats-card card h-100 d-flex flex-column" data-glass><div class="card-content flex-grow-1 justify-content-center align-items-center d-flex flex-column" style="padding:10px"><div class="stats-value" id="countryCode">-</div><div class="stats-label">地区</div></div></div></div>
     </div>
 
     <div class="row">
@@ -511,7 +511,7 @@
             <div class="card-header collapsible-header d-flex justify-content-between align-items-center" onclick="toggleSection('tokens')">
               <span>
                 <i class="bi bi-chevron-down toggle-icon me-1"></i>
-                <i class="bi bi-key-fill me-2"></i>Auth Token Status
+                <i class="bi bi-key-fill me-2"></i>认证令牌状态
               </span>
               <span id="tokenRemainingTime" style="font-size:0.85rem;font-weight:600;color:#58a6ff"></span>
               <span class="badge bg-secondary" id="tokenCountBadge">0</span>
@@ -519,7 +519,7 @@
             <div class="card-body collapse-section" id="section-tokens">
               <div id="tokenPoolsContainer"></div>
               <small class="text-muted" style="display:block;margin-top:10px;">
-                Tokens are auto-detected from Freebuff CLI (~/.config/manicode/credentials.json)
+                令牌自动从 Freebuff CLI 检测（~/.config/manicode/credentials.json）
               </small>
             </div>
           </div>
@@ -534,7 +534,7 @@
             <div class="card-header collapsible-header d-flex justify-content-between align-items-center" onclick="toggleSection('models')">
               <span>
                 <i class="bi bi-chevron-down toggle-icon me-1"></i>
-                <i class="bi bi-cpu-fill me-2"></i>Available Models
+                <i class="bi bi-cpu-fill me-2"></i>可用模型
               </span>
               <span class="badge bg-secondary" id="modelCountBadge">0</span>
             </div>
@@ -549,13 +549,13 @@
           <div class="card-content">
             <div class="card-header collapsible-header" onclick="toggleSection('actions')">
               <i class="bi bi-chevron-down toggle-icon collapsed me-1"></i>
-              <i class="bi bi-lightning-charge-fill me-2"></i>Quick Actions
+              <i class="bi bi-lightning-charge-fill me-2"></i>快捷操作
             </div>
             <div class="card-body collapse-section collapsed" id="section-actions">
               <div class="d-grid gap-2">
-                <button class="btn btn-outline-action" onclick="checkHealth()"><i class="bi bi-activity me-2"></i>Check Health</button>
-                <button class="btn btn-outline-action" onclick="testConnection()"><i class="bi bi-wifi me-2"></i>Test Connection</button>
-                <button class="btn btn-outline-action" onclick="refreshModels()"><i class="bi bi-arrow-clockwise me-2"></i>Refresh Models</button>
+                <button class="btn btn-outline-action" onclick="checkHealth()"><i class="bi bi-activity me-2"></i>检查健康状态</button>
+                <button class="btn btn-outline-action" onclick="testConnection()"><i class="bi bi-wifi me-2"></i>测试连接</button>
+                <button class="btn btn-outline-action" onclick="refreshModels()"><i class="bi bi-arrow-clockwise me-2"></i>刷新模型</button>
               </div>
             </div>
           </div>
@@ -566,34 +566,34 @@
           <div class="card-content">
             <div class="card-header collapsible-header" onclick="toggleSection('env')">
               <i class="bi bi-chevron-down toggle-icon collapsed me-1"></i>
-              <i class="bi bi-info-circle-fill me-2"></i>Environment
+              <i class="bi bi-info-circle-fill me-2"></i>环境信息
             </div>
             <div class="card-body collapse-section collapsed" id="section-env">
               <div class="mb-2">
-                <small class="text-muted">Runtime</small>
+                <small class="text-muted">运行时</small>
                 <div class="fw-medium" id="runtimeInfo">-</div>
               </div>
               <div class="mb-2">
-                <small class="text-muted">Started At</small>
+                <small class="text-muted">启动时间</small>
                 <div class="fw-medium" id="startedAt">-</div>
               </div>
 
               <div class="mb-2">
                 <div class="form-check form-switch">
                   <input class="form-check-input" type="checkbox" id="wallpaperToggle" onchange="toggleWallpaper()">
-                  <label class="form-check-label text-muted" for="wallpaperToggle" style="cursor:pointer">Enable Wallpaper</label>
+                  <label class="form-check-label text-muted" for="wallpaperToggle" style="cursor:pointer">启用壁纸</label>
                 </div>
               </div>
               <div class="mb-2">
                 <div class="form-check form-switch">
                   <input class="form-check-input" type="checkbox" id="adsToggleEnv" checked onchange="toggleAds(this.checked)">
-                  <label class="form-check-label text-muted" for="adsToggleEnv" style="cursor:pointer">Show Ads</label>
+                  <label class="form-check-label text-muted" for="adsToggleEnv" style="cursor:pointer">显示广告</label>
                 </div>
               </div>
               <div class="mb-2">
                 <div class="form-check form-switch">
                   <input class="form-check-input" type="checkbox" id="blurTokensEnv" onchange="toggleBlurTokens(this.checked)">
-                  <label class="form-check-label text-muted" for="blurTokensEnv" style="cursor:pointer">SS Mode</label>
+                  <label class="form-check-label text-muted" for="blurTokensEnv" style="cursor:pointer">隐私模式（令牌打码）</label>
                 </div>
               </div>
             </div>
@@ -605,27 +605,27 @@
           <div class="card-content">
             <div class="card-header collapsible-header" onclick="toggleSection('config')">
               <i class="bi bi-chevron-down toggle-icon collapsed me-1"></i>
-              <i class="bi bi-gear-fill me-2"></i>Proxy Configuration
+              <i class="bi bi-gear-fill me-2"></i>代理配置
             </div>
             <div class="card-body collapse-section collapsed" id="section-config">
               <form id="configForm">
                 <div class="row">
                   <div class="col-6 mb-2">
-                    <label class="form-label" style="font-size:10px;margin-bottom:2px">Listen Address</label>
+                    <label class="form-label" style="font-size:10px;margin-bottom:2px">监听地址</label>
                     <input type="text" class="form-control form-control-sm" id="listenAddr" value=":3001" onchange="saveConfigValue('listenAddr', 'listenAddr')">
                   </div>
                   <div class="col-6 mb-2">
-                    <label class="form-label" style="font-size:10px;margin-bottom:2px">Rotation</label>
+                    <label class="form-label" style="font-size:10px;margin-bottom:2px">轮换间隔</label>
                     <input type="text" class="form-control form-control-sm" id="rotationInterval" value="6h" onchange="saveConfigValue('rotationInterval', 'rotationInterval')">
                   </div>
                 </div>
                 <div class="row">
                   <div class="col-8 mb-2">
-                    <label class="form-label" style="font-size:10px;margin-bottom:2px">Upstream URL</label>
+                    <label class="form-label" style="font-size:10px;margin-bottom:2px">上游地址</label>
                     <input type="url" class="form-control form-control-sm" id="upstreamUrl" value="https://www.codebuff.com" onchange="saveConfigValue('upstreamUrl', 'upstreamBaseURL')">
                   </div>
                   <div class="col-4 mb-2">
-                    <label class="form-label" style="font-size:10px;margin-bottom:2px">Timeout</label>
+                    <label class="form-label" style="font-size:10px;margin-bottom:2px">超时</label>
                     <input type="text" class="form-control form-control-sm" id="requestTimeout" value="15m" onchange="saveConfigValue('requestTimeout', 'requestTimeout')">
                   </div>
                 </div>
@@ -745,7 +745,7 @@
       try {
         const resp = await fetch('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         const data = await resp.json();
-        if (data.success) { showToast(configKey + ' saved', 'info'); config = data.config; }
+        if (data.success) { showToast(configKey + ' 已保存', 'info'); config = data.config; }
       } catch (e) {}
     }
 
@@ -756,7 +756,7 @@
       try {
         const resp = await fetch('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enableWallpaper: checked }) });
         const data = await resp.json();
-        if (data.success) { showToast('Wallpaper setting saved', 'info'); config = data.config; }
+        if (data.success) { showToast('壁纸设置已保存', 'info'); config = data.config; }
       } catch (e) {}
     }
 
@@ -774,9 +774,9 @@
         const slidesContainer = document.getElementById('adSlidesContainer');
         const dotsContainer = document.getElementById('adDots');
         const counterLabel = document.getElementById('adCounterLabel');
-        if (slidesContainer) slidesContainer.innerHTML = '<div style="font-size:12px;color:rgba(13,17,23,0.4);text-align:center;padding:12px 0">Ads disabled</div>';
+        if (slidesContainer) slidesContainer.innerHTML = '<div style="font-size:12px;color:rgba(13,17,23,0.4);text-align:center;padding:12px 0">广告已禁用</div>';
         if (dotsContainer) dotsContainer.innerHTML = '';
-        if (counterLabel) counterLabel.textContent = 'Ads off';
+        if (counterLabel) counterLabel.textContent = '广告已关闭';
         const arrows = document.querySelectorAll('.ad-arrow');
         arrows.forEach(a => a.style.display = 'none');
       } else {
@@ -845,7 +845,7 @@
       currentAdIdx = idx;
       const counterLabel = document.getElementById('adCounterLabel');
       if (counterLabel && adsList.length > 0) {
-        counterLabel.textContent = 'Ad ' + (idx + 1) + '/' + adsList.length;
+        counterLabel.textContent = '广告 ' + (idx + 1) + '/' + adsList.length;
       }
       const ad = adsList[idx];
       if (ad && ad.adImpUrl && !adImpressionSent.has(idx)) {
@@ -867,17 +867,17 @@
       const arrows = document.querySelectorAll('.ad-arrow');
       if (!slidesContainer || !dotsContainer) return;
       if (!adsEnabled) {
-        slidesContainer.innerHTML = '<div style="font-size:12px;color:rgba(13,17,23,0.4);text-align:center;padding:12px 0">Ads disabled</div>';
+        slidesContainer.innerHTML = '<div style="font-size:12px;color:rgba(13,17,23,0.4);text-align:center;padding:12px 0">广告已禁用</div>';
         dotsContainer.innerHTML = '';
-        if (counterLabel) counterLabel.textContent = 'Ads off';
+        if (counterLabel) counterLabel.textContent = '广告已关闭';
         arrows.forEach(a => a.style.display = 'none');
         return;
       }
       arrows.forEach(a => a.style.display = adsList.length > 1 ? '' : 'none');
       if (adsList.length === 0) {
-        slidesContainer.innerHTML = '<div style="font-size:12px;color:rgba(13,17,23,0.4);text-align:center;padding:12px 0">No ads available</div>';
+        slidesContainer.innerHTML = '<div style="font-size:12px;color:rgba(13,17,23,0.4);text-align:center;padding:12px 0">暂无广告</div>';
         dotsContainer.innerHTML = '';
-        if (counterLabel) counterLabel.textContent = 'Ad';
+        if (counterLabel) counterLabel.textContent = '广告';
         return;
       }
       if (currentAdIdx >= adsList.length) currentAdIdx = 0;
@@ -896,11 +896,11 @@
             ${ad.adCallToAction ? `<a href="${escapeHtml(ad.adLink)}" target="_blank" rel="noopener sponsored" onclick="reportAdClick(${i})" style="background:rgba(13,17,23,0.1);border:1px solid rgba(13,17,23,0.2);color:#0d1117;padding:3px 10px;border-radius:5px;font-size:10px;font-weight:600;white-space:nowrap;flex-shrink:0;text-decoration:none">${escapeHtml(ad.adCallToAction)}</a>` : ''}
           </div>`;
         }
-        if (!inner) inner = '<div style="font-size:12px;color:rgba(13,17,23,0.4)">No ad content</div>';
+        if (!inner) inner = '<div style="font-size:12px;color:rgba(13,17,23,0.4)">无广告内容</div>';
         return `<div class="ad-slide${i === currentAdIdx ? ' active' : ''}" style="padding:4px 0">${inner}</div>`;
       }).join('');
       dotsContainer.innerHTML = adsList.map((_, i) => `<span class="ad-dot${i === currentAdIdx ? ' active' : ''}" onclick="goToAdSlide(${i})"><span class="dot-indicator"></span></span>`).join('');
-      if (counterLabel) counterLabel.textContent = adsList.length > 1 ? 'Ad ' + (currentAdIdx + 1) + '/' + adsList.length : 'Ad';
+      if (counterLabel) counterLabel.textContent = adsList.length > 1 ? '广告 ' + (currentAdIdx + 1) + '/' + adsList.length : '广告';
     }
 
     async function loadConfiguration() {
@@ -925,7 +925,7 @@
         renderTokenPools();
         updateStats();
       } catch (error) {
-        showToast('Failed to load configuration', 'danger');
+        showToast('配置加载失败', 'danger');
       }
     }
 
@@ -940,15 +940,17 @@
         const drained = limit > 0 && remaining <= 0;
         const pct = limit > 0 ? Math.min(100, (used / limit) * 100) : 0;
         const shortName = (q.model || '').split('/').pop();
+        // Freebuff quota counts session units ("N of M sessions used today"), not hours.
         return `<div class="quota-row">
           <span class="q-model" title="${escapeHtml(q.model || '')}">${escapeHtml(shortName)}</span>
           <span class="q-bar"><span class="q-bar-fill${drained ? ' drained' : ''}" style="width:${pct}%"></span></span>
-          <span class="q-count${drained ? ' drained' : ''}">${used}/${limit}</span>
+          <span class="q-count${drained ? ' drained' : ''}">已用 ${used.toFixed(1)}/${limit}${drained ? ' · 已满' : ''}</span>
         </div>`;
       }).join('');
       const firstReset = entries.find(q => q.resetAt)?.resetAt;
-      const resetLine = firstReset ? `<div class="quota-reset">Resets ${new Date(firstReset).toLocaleString()}</div>` : '';
-      return `<div class="quota-block"><div class="quota-title">Model Quota</div>${rows}${resetLine}</div>`;
+      const resetLine = firstReset ? `<div class="quota-reset">重置于 ${new Date(firstReset).toLocaleString()}</div>` : '';
+      const note = `<div class="quota-reset">额度仅限制「新会话准入」，已运行的会话不受影响</div>`;
+      return `<div class="quota-block"><div class="quota-title">模型配额（会话 · 已用/上限）</div>${rows}${resetLine}${note}</div>`;
     }
 
     function renderTokenPools() {
@@ -957,8 +959,8 @@
         container.innerHTML = `
           <div class="text-center py-4">
             <i class="bi bi-key" style="font-size:2rem;color:rgba(255,255,255,0.4)"></i>
-            <p class="mt-2 text-muted">No tokens detected</p>
-            <button class="btn btn-sm btn-white-bg mt-2" onclick="startOAuth()"><i class="bi bi-shield-lock-fill me-1"></i>Generate Auth Token</button>
+            <p class="mt-2 text-muted">未检测到令牌</p>
+            <button class="btn btn-sm btn-white-bg mt-2" onclick="startOAuth()"><i class="bi bi-shield-lock-fill me-1"></i>生成认证令牌</button>
           </div>`;
         return;
       }
@@ -966,20 +968,30 @@
       container.innerHTML = proxyData.token_state.map(pool => {
         const sessionStatus = pool.session_status || 'none';
         const statusClass = sessionStatus === 'active' ? 'status-online' : 'status-offline';
-        const statusText = sessionStatus.charAt(0).toUpperCase() + sessionStatus.slice(1);
+        const statusTextMap = { active: '活跃', none: '无会话', ended: '已结束', superseded: '被接管', country_blocked: '地区受限', model_locked: '模型锁定', rate_limited: '限流', spend_limited: '额度用尽', ip_capped: 'IP 上限', banned: '已封禁' };
+        const statusText = statusTextMap[sessionStatus] || sessionStatus;
+        const tier = pool.access_tier || null;
+        const tierLabel = tier === 'full' ? '完整版 (full)' : tier === 'limited' ? '受限版 (limited)' : (tier || '未知档位');
+        const tierBadge = tier
+          ? `<span class="badge ${tier === 'full' ? 'bg-success' : 'bg-warning text-dark'}" style="font-size:0.7rem">${tierLabel}</span>`
+          : '';
+        const boundModel = pool.model || pool.locked_model || null;
+        const boundLine = boundModel
+          ? `<div style="margin-top:6px;font-size:0.78rem;color:#58a6ff;">正在使用：<span class="${blurClass}">${escapeHtml(boundModel.split('/').pop())}</span></div>`
+          : '';
         const lockedModel = pool.locked_model || null;
         const cardClass = lockedModel ? 'pool-card locked' : 'pool-card';
         let runsHtml = '';
         if (pool.runs && pool.runs.length > 0) {
-          runsHtml = pool.runs.map(run => `<div class="run-item"><span class="run-agent">${run.agent_id}</span><span class="${blurClass}">${run.run_id.substring(0, 8)}... | Inflight: ${run.inflight} | Requests: ${run.request_count}</span></div>`).join('');
+          runsHtml = pool.runs.map(run => `<div class="run-item"><span class="run-agent">${run.agent_id}</span><span class="${blurClass}">${run.run_id.substring(0, 8)}... | 运行中: ${run.inflight} | 请求: ${run.request_count}</span></div>`).join('');
         }
         let sessionInfo = '';
         if (pool.session_instance_id) {
-          sessionInfo = `<div style="margin-top:8px;font-size:0.8rem;color:#ffffff;" class="${blurClass}">Session: ${pool.session_instance_id.substring(0,12)}...${pool.session_expires_at ? ' | Expires: ' + new Date(pool.session_expires_at).toLocaleTimeString() : ''}</div>`;
+          sessionInfo = `<div style="margin-top:8px;font-size:0.8rem;color:#ffffff;" class="${blurClass}">会话: ${pool.session_instance_id.substring(0,12)}...${pool.session_expires_at ? ' | 过期: ' + new Date(pool.session_expires_at).toLocaleTimeString() : ''}</div>`;
         }
-        const lockedBadge = lockedModel ? `<div class="locked-model-badge"><i class="bi bi-lock-fill lock-icon"></i><span>Locked: ${escapeHtml(lockedModel)}</span><button class="unlock-btn" onclick="unlockSession()">Unlock</button></div>` : '';
+        const lockedBadge = lockedModel ? `<div class="locked-model-badge"><i class="bi bi-lock-fill lock-icon"></i><span>已锁定: ${escapeHtml(lockedModel)}</span><button class="unlock-btn" onclick="unlockSession()">解锁</button></div>` : '';
         const quotaHtml = renderQuotaBlock(pool.quota_by_model);
-        return `<div class="${cardClass}"><div class="pool-header"><div class="pool-name">${pool.name}</div><div class="pool-status ${statusClass}">${statusText}</div></div>${runsHtml}${sessionInfo}${lockedBadge}${quotaHtml}${pool.last_error ? `<div class="text-danger" style="margin-top:8px;font-size:0.8rem;">${pool.last_error}</div>` : ''}</div>`;
+        return `<div class="${cardClass}"><div class="pool-header"><div class="pool-name">${pool.name} ${tierBadge}</div><div class="pool-status ${statusClass}">${statusText}</div></div>${boundLine}${runsHtml}${sessionInfo}${lockedBadge}${quotaHtml}${pool.last_error ? `<div class="text-danger" style="margin-top:8px;font-size:0.8rem;">${pool.last_error}</div>` : ''}</div>`;
       }).join('');
     }
 
@@ -988,13 +1000,13 @@
         const resp = await fetch('/api/session/unlock', { method: 'POST' });
         const data = await resp.json();
         if (data.ok) {
-          showToast(`Unlocked ${data.unlocked_count} session(s)`, 'success');
+          showToast(`已解锁 ${data.unlocked_count} 个会话`, 'success');
           await checkHealth();
         } else {
-          showToast(data.error || 'Unlock failed', 'danger');
+          showToast(data.error || '解锁失败', 'danger');
         }
       } catch (e) {
-        showToast('Unlock failed: ' + e.message, 'danger');
+        showToast('解锁失败: ' + e.message, 'danger');
       }
     }
 
@@ -1010,7 +1022,7 @@
     function renderModels() {
       const container = document.getElementById('modelsContainer');
       document.getElementById('modelCountBadge').textContent = `${enabledModels.length}/${models.length}`;
-      if (models.length === 0) { container.innerHTML = '<p class="text-muted">No models available</p>'; return; }
+      if (models.length === 0) { container.innerHTML = '<p class="text-muted">暂无可用模型</p>'; return; }
       container.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:3px">${models.map((model, idx) => {
         const isEnabled = enabledModels.includes(model);
         return `<div class="model-tag${isEnabled ? ' enabled' : ''}" onclick="toggleModel(${idx})" id="model-${idx}"><input type="checkbox" class="form-check-input"${isEnabled ? ' checked' : ''}><div><div class="model-tag-name">${escapeHtml(getModelDisplayName(model))}</div><div class="model-tag-id" title="${escapeHtml(model)}">${escapeHtml(model)}</div></div></div>`;
@@ -1033,36 +1045,36 @@
       }
       fetch('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabledModels }) });
       document.getElementById('modelCountBadge').textContent = `${enabledModels.length}/${models.length}`;
-      showToast(`${getModelDisplayName(model)} ${isCurrentlyEnabled ? 'disabled' : 'enabled'}`, 'info');
+      showToast(`${getModelDisplayName(model)} ${isCurrentlyEnabled ? '已禁用' : '已启用'}`, 'info');
     }
 
     async function startOAuth() {
       const container = document.getElementById('oauthContainer');
       container.style.display = 'block';
-      container.innerHTML = '<div class="text-center py-3"><div class="spinner-border text-primary" role="status"></div><p class="mt-2 text-muted">Generating login URL...</p></div>';
+      container.innerHTML = '<div class="text-center py-3"><div class="spinner-border text-primary" role="status"></div><p class="mt-2 text-muted">正在生成登录链接...</p></div>';
       try {
         const response = await fetch('/api/auth/start', { method: 'POST' });
         const data = await response.json();
-        if (!data.loginUrl) throw new Error('No login URL received');
+        if (!data.loginUrl) throw new Error('未收到登录链接');
         oauthSession = data;
         container.innerHTML = `
           <div class="mb-3">
-            <label class="form-label">Step 1: Open Login URL</label>
+            <label class="form-label">步骤 1：打开登录链接</label>
             <div class="input-group">
               <input type="text" class="form-control" id="oauthLoginUrl" value="${escapeHtml(data.loginUrl)}" readonly>
-              <button class="btn btn-outline-action" onclick="copyToClipboard('oauthLoginUrl')">Copy</button>
-              <a class="btn btn-white-bg" href="${escapeHtml(data.loginUrl)}" target="_blank">Open</a>
+              <button class="btn btn-outline-action" onclick="copyToClipboard('oauthLoginUrl')">复制</button>
+              <a class="btn btn-white-bg" href="${escapeHtml(data.loginUrl)}" target="_blank">打开</a>
             </div>
           </div>
           <div class="mb-3">
-            <label class="form-label">Step 2: Paste Callback URL</label>
-            <input type="text" class="form-control" id="oauthCallbackUrl" placeholder="Paste the callback URL after login...">
+            <label class="form-label">步骤 2：粘贴回调链接</label>
+            <input type="text" class="form-control" id="oauthCallbackUrl" placeholder="登录后粘贴回调链接...">
           </div>
-          <button class="btn btn-white-bg w-100" onclick="verifyOAuth()"><i class="bi bi-check-circle me-2"></i>Verify & Fetch Token</button>
+          <button class="btn btn-white-bg w-100" onclick="verifyOAuth()"><i class="bi bi-check-circle me-2"></i>验证并获取令牌</button>
           <div id="oauthProgress" style="display:none;margin-top:10px;"><div class="progress"><div class="progress-bar progress-bar-striped progress-bar-animated" style="width:100%"></div></div></div>`;
         startOAuthPolling();
       } catch (error) {
-        container.innerHTML = `<div class="text-center text-danger py-3"><i class="bi bi-exclamation-triangle" style="font-size:2rem"></i><p class="mt-2">${error.message}</p><button class="btn btn-sm btn-outline-action" onclick="startOAuth()">Try Again</button></div>`;
+        container.innerHTML = `<div class="text-center text-danger py-3"><i class="bi bi-exclamation-triangle" style="font-size:2rem"></i><p class="mt-2">${error.message}</p><button class="btn btn-sm btn-outline-action" onclick="startOAuth()">重试</button></div>`;
       }
     }
 
@@ -1071,15 +1083,15 @@
       let attempts = 0;
       oauthPollTimer = setInterval(async () => {
         attempts++;
-        if (attempts > 60) { clearInterval(oauthPollTimer); document.getElementById('oauthProgress').style.display = 'none'; showToast('OAuth timeout', 'warning'); return; }
+        if (attempts > 60) { clearInterval(oauthPollTimer); document.getElementById('oauthProgress').style.display = 'none'; showToast('登录超时', 'warning'); return; }
         try {
           const response = await fetch('/api/auth/status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fingerprintId: oauthSession.fingerprintId, fingerprintHash: oauthSession.fingerprintHash, expiresAt: oauthSession.expiresAt }) });
           const data = await response.json();
           if (data.user && data.user.authToken) {
             clearInterval(oauthPollTimer);
             const container = document.getElementById('oauthContainer');
-            container.innerHTML = `<div class="text-center py-3"><div class="badge bg-success mb-3"><i class="bi bi-check-circle me-1"></i>Authenticated</div><p class="text-muted">Token added!</p><p class="fw-medium">${escapeHtml(data.user.email || data.user.name)}</p><button class="btn btn-sm btn-outline-action mt-2" onclick="startOAuth()">Generate Another</button></div>`;
-            showToast('Auth token added successfully', 'success');
+            container.innerHTML = `<div class="text-center py-3"><div class="badge bg-success mb-3"><i class="bi bi-check-circle me-1"></i>已认证</div><p class="text-muted">令牌已添加！</p><p class="fw-medium">${escapeHtml(data.user.email || data.user.name)}</p><button class="btn btn-sm btn-outline-action mt-2" onclick="startOAuth()">再生成一个</button></div>`;
+            showToast('认证令牌添加成功', 'success');
             loadConfiguration();
           }
         } catch (e) {}
@@ -1088,7 +1100,7 @@
 
     async function verifyOAuth() {
       const callbackUrl = document.getElementById('oauthCallbackUrl').value.trim();
-      if (!callbackUrl) { showToast('Please paste the callback URL', 'warning'); return; }
+      if (!callbackUrl) { showToast('请粘贴回调链接', 'warning'); return; }
       document.getElementById('oauthProgress').style.display = 'block';
       try {
         const authCode = callbackUrl.includes('auth_code=') ? callbackUrl.split('auth_code=')[1].split('&')[0] : callbackUrl;
@@ -1096,15 +1108,15 @@
         const data = await response.json();
         if (data.user && data.user.authToken) {
           clearInterval(oauthPollTimer);
-          document.getElementById('oauthContainer').innerHTML = `<div class="text-center py-3"><div class="badge bg-success mb-3"><i class="bi bi-check-circle me-1"></i>Authenticated</div><p class="text-muted">Token added!</p><p class="fw-medium">${escapeHtml(data.user.email || data.user.name)}</p><button class="btn btn-sm btn-outline-action mt-2" onclick="startOAuth()">Generate Another</button></div>`;
-          showToast('Auth token added successfully', 'success');
+          document.getElementById('oauthContainer').innerHTML = `<div class="text-center py-3"><div class="badge bg-success mb-3"><i class="bi bi-check-circle me-1"></i>已认证</div><p class="text-muted">令牌已添加！</p><p class="fw-medium">${escapeHtml(data.user.email || data.user.name)}</p><button class="btn btn-sm btn-outline-action mt-2" onclick="startOAuth()">再生成一个</button></div>`;
+          showToast('认证令牌添加成功', 'success');
           loadConfiguration();
         } else {
-          showToast('Verification pending - waiting for login...', 'info');
+          showToast('验证等待中 - 请先登录...', 'info');
         }
       } catch (error) {
         document.getElementById('oauthProgress').style.display = 'none';
-        showToast('Verification failed: ' + error.message, 'danger');
+        showToast('验证失败: ' + error.message, 'danger');
       }
     }
 
@@ -1112,7 +1124,7 @@
       const el = document.getElementById(elementId);
       el.select();
       document.execCommand('copy');
-      showToast('Copied to clipboard', 'info');
+      showToast('已复制到剪贴板', 'info');
     }
 
     async function checkHealth(silent = false) {
@@ -1122,17 +1134,17 @@
         if (data.ok) {
           proxyData = data;
           document.getElementById('statusIndicator').className = 'status-indicator status-online';
-          document.getElementById('statusText').textContent = 'Online';
+          document.getElementById('statusText').textContent = '在线';
           renderTokenPools();
           updateStats();
-          if (!silent) showToast('Proxy is healthy', 'success');
+          if (!silent) showToast('代理运行正常', 'success');
         } else {
-          throw new Error('Unhealthy status');
+          throw new Error('状态异常');
         }
       } catch (error) {
         document.getElementById('statusIndicator').className = 'status-indicator status-offline';
-        document.getElementById('statusText').textContent = 'Offline';
-        if (!silent) showToast('Proxy health check failed', 'danger');
+        document.getElementById('statusText').textContent = '离线';
+        if (!silent) showToast('代理健康检查失败', 'danger');
       }
     }
 
@@ -1141,18 +1153,18 @@
         const response = await fetch('/v1/models');
         if (response.ok) {
           const data = await response.json();
-          showToast(`Connected! ${data.data?.length || 0} models available`, 'success');
+          showToast(`连接成功！${data.data?.length || 0} 个模型可用`, 'success');
         } else {
-          throw new Error('Connection failed');
+          throw new Error('连接失败');
         }
       } catch (error) {
-        showToast('Connection test failed', 'danger');
+        showToast('连接测试失败', 'danger');
       }
     }
 
     function refreshModels() {
       loadConfiguration();
-      showToast('Models refreshed', 'info');
+      showToast('模型已刷新', 'info');
     }
 
     function updateRemainingDisplay() {
@@ -1160,12 +1172,12 @@
       if (!remainingMsAtFetch || !remainingMsTimestamp) { el.textContent = ''; return; }
       const elapsed = Date.now() - remainingMsTimestamp;
       const left = Math.max(0, remainingMsAtFetch - elapsed);
-      if (left <= 0) { el.textContent = 'expired'; return; }
+      if (left <= 0) { el.textContent = '已过期'; return; }
       const totalSec = Math.floor(left / 1000);
       const hrs = Math.floor(totalSec / 3600);
       const mins = Math.floor((totalSec % 3600) / 60);
       const secs = totalSec % 60;
-      el.textContent = (hrs > 0 ? hrs + 'h ' : '') + mins + 'm ' + secs + 's left';
+      el.textContent = (hrs > 0 ? hrs + ' 小时 ' : '') + mins + ' 分 ' + secs + ' 秒剩余';
     }
 
     function updateStats() {
@@ -1180,7 +1192,7 @@
       el.textContent = cc;
       if (tier === 'limited') {
         const small = document.createElement('small');
-        small.textContent = '(limit)';
+        small.textContent = '（受限）';
         small.style.marginLeft = '4px';
         small.style.opacity = '0.7';
         el.appendChild(small);
