@@ -607,17 +607,76 @@ async function writeOpenAISuccessResponse(res, resp) {
     model = await pipeBodyToResponseAndCaptureModel(body, res);
   } else {
     const buffer = await readBodyText(resp.body);
-    res.end(buffer);
-    try { const parsed = JSON.parse(buffer); if (parsed.id) messageId = parsed.id; if (parsed.model) model = parsed.model; } catch (e) {}
+    try {
+      const parsed = JSON.parse(buffer);
+      stripUnsupportedReasoningFields(parsed);
+      const cleaned = JSON.stringify(parsed);
+      res.end(cleaned);
+      if (parsed.id) messageId = parsed.id;
+      if (parsed.model) model = parsed.model;
+    } catch (e) {
+      res.end(buffer);
+    }
   }
 
   return { messageId, model };
+}
+
+// Providers (notably OpenRouter) sometimes attach a top-level `reasoning_details`
+// field on the response or on the streaming delta. The field is valid JSON, but
+// it is not part of the OpenAI ChatCompletion schema; strict SDK clients
+// (Pydantic, OpenAI Agents, official ChatCompletion parsers) refuse the chunk
+// with "JSON parsing failed". Strip the provider extension before forwarding.
+function stripUnsupportedReasoningFields(payload) {
+  if (!payload || typeof payload !== 'object') return payload;
+  if (payload.reasoning_details !== undefined) delete payload.reasoning_details;
+  if (Array.isArray(payload.choices)) {
+    for (const choice of payload.choices) {
+      if (choice && choice.delta && choice.delta.reasoning_details !== undefined) {
+        delete choice.delta.reasoning_details;
+      }
+      if (choice && choice.message && choice.message.reasoning_details !== undefined) {
+        delete choice.message.reasoning_details;
+      }
+    }
+  }
+  return payload;
+}
+
+// Rewrite one SSE `data: ...` JSON payload by stripping the unsupported field.
+// Falls back to the original payload on parse failure so we never emit blank
+// chunks.
+function sanitizeSseDataLine(rawPayload) {
+  if (!rawPayload || rawPayload === '[DONE]') return rawPayload;
+  try {
+    const parsed = JSON.parse(rawPayload);
+    stripUnsupportedReasoningFields(parsed);
+    return JSON.stringify(parsed);
+  } catch (_) {
+    return rawPayload;
+  }
 }
 
 async function pipeBodyToResponseAndCaptureModel(body, res) {
   let model = null;
   let buffer = '';
   let captured = false;
+  let scrubbedOnce = false;
+
+  function flushCaptured() {
+    if (!buffer) return;
+    // Only strip on the first chunk that contains a parseable JSON payload — the
+    // capture regex is tolerant of trailing bytes, so we sanitize by editing
+    // the first `data: {…}` frame; subsequent frames keep streaming untouched.
+    if (!scrubbedOnce) {
+      buffer = buffer.replace(/^(data:\s*)([\s\S]*?)(\r?\n\r?\n)/, (m, header, payload, tail) => {
+        scrubbedOnce = true;
+        return header + sanitizeSseDataLine(payload.trim()) + tail;
+      });
+    }
+    res.write(Buffer.from(buffer));
+    buffer = '';
+  }
 
   function processChunk(chunk) {
     const str = chunk instanceof Buffer ? chunk.toString() : typeof chunk === 'string' ? chunk : new TextDecoder().decode(chunk);
@@ -627,8 +686,7 @@ async function pipeBodyToResponseAndCaptureModel(body, res) {
       if (match) {
         captured = true;
         try { const parsed = JSON.parse(match[1]); if (parsed.model) model = parsed.model; } catch (_) {}
-        res.write(Buffer.from(buffer));
-        buffer = '';
+        flushCaptured();
         return;
       }
     }
