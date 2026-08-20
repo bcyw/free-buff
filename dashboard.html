@@ -320,6 +320,11 @@
       color: rgba(255, 255, 255, 0.4);
       margin-top: 4px;
     }
+    .quota-row.bound .q-model { font-weight: 600; color: #58a6ff; }
+    .quota-row .q-bar-fill.unlimited { background: rgba(255, 255, 255, 0.15); }
+    .quota-row .q-bar-fill.fresh { background: rgba(88, 166, 255, 0.25); width: 100% !important; }
+    .quota-row .q-count.unlimited { flex-basis: 72px; color: rgba(255, 255, 255, 0.45); }
+    .quota-row .q-count.fresh { flex-basis: 190px; color: rgba(88, 166, 255, 0.85); font-size: 0.68rem; }
     .model-tag {
       display: inline-flex;
       align-items: center;
@@ -929,28 +934,77 @@
       }
     }
 
-    function renderQuotaBlock(quotaByModel) {
-      if (!quotaByModel) return '';
-      const entries = Object.values(quotaByModel);
-      if (entries.length === 0) return '';
-      const rows = entries.map(q => {
-        const limit = q.limit ?? 0;
-        const used = q.recentCount ?? 0;
-        const remaining = Math.max(0, limit - used);
-        const drained = limit > 0 && remaining <= 0;
-        const pct = limit > 0 ? Math.min(100, (used / limit) * 100) : 0;
-        const shortName = (q.model || '').split('/').pop();
-        // Freebuff quota counts session units ("N of M sessions used today"), not hours.
-        return `<div class="quota-row">
-          <span class="q-model" title="${escapeHtml(q.model || '')}">${escapeHtml(shortName)}</span>
-          <span class="q-bar"><span class="q-bar-fill${drained ? ' drained' : ''}" style="width:${pct}%"></span></span>
-          <span class="q-count${drained ? ' drained' : ''}">已用 ${used.toFixed(1)}/${limit}${drained ? ' · 已满' : ''}</span>
+    function renderQuotaBlock(quotaByModel, boundModel) {
+      // 交叉展示：全部模型 + limit/recentCount 实时数据。
+      // 未列入 RATE_LIMITS 的 unlimited 模型没有 quota 字段是官方设计（see
+      // CodebuffAI/codebuff web/src/server/free-session/public-api.ts），这里
+      // 用 model_metadata 标记「无限额度」或「受每日额度限制」。
+      const qMap = quotaByModel || {};
+      // Include server-reported quota rows even when the model is hidden from
+      // the public catalog (for example GLM, which is currently blacklisted).
+      const list = [...new Set([
+        ...(Array.isArray(models) ? models : []),
+        ...Object.keys(qMap),
+      ])];
+      const tokens = (proxyData && proxyData.token_state) || [];
+      // Prefer this token card's model; retain a fallback for older callers.
+      const boundFull = boundModel || tokens.map(p => p.model || p.locked_model).filter(Boolean)[0] || null;
+      const boundShort = boundFull ? boundFull.split('/').pop() : null;
+
+      const rows = list.map(m => {
+        const shortName = m.split('/').pop();
+        const meta = modelMetadata[m] || {};
+        const q = qMap[m] || null;
+        const isPremium = !!meta.premium;
+        const isFree = !!meta.free;
+        const isBound = (boundFull && m === boundFull) || (boundShort && shortName === boundShort);
+        const boundTag = isBound ? '<span class="badge bg-primary" style="font-size:0.55rem;margin-left:4px;vertical-align:middle">使用中</span>' : '';
+
+        if (q && typeof q.limit === 'number' && q.limit > 0) {
+          const used = q.recentCount ?? 0;
+          const drained = used >= q.limit;
+          const pct = Math.min(100, (used / q.limit) * 100);
+          const label = meta.displayName || shortName;
+          return `<div class="quota-row${isBound ? ' bound' : ''}${drained ? ' drained' : ''}">
+            <span class="q-model" title="${escapeHtml(m)}">${escapeHtml(label)}${boundTag}</span>
+            <span class="q-bar"><span class="q-bar-fill${drained ? ' drained' : ''}" style="width:${pct}%"></span></span>
+            <span class="q-count${drained ? ' drained' : ''}">已用 ${used.toFixed(1)}/${q.limit}${drained ? ' · 已满' : ''}</span>
+          </div>`;
+        }
+        if (q && typeof q.limit === 'number' && q.limit <= 0) {
+          const label = meta.displayName || shortName;
+          return `<div class="quota-row${isBound ? ' bound' : ''} drained">
+            <span class="q-model" title="${escapeHtml(m)}">${escapeHtml(label)}${boundTag}</span>
+            <span class="q-bar"><span class="q-bar-fill drained" style="width:100%"></span></span>
+            <span class="q-count drained">额度 0/0 · 当前不可用</span>
+          </div>`;
+        }
+        if (!isPremium || isFree) {
+          // unlimited / 免费无上限
+          const label = meta.displayName || shortName;
+          return `<div class="quota-row${isBound ? ' bound' : ''}">
+            <span class="q-model" title="${escapeHtml(m)}">${escapeHtml(label)}${boundTag}</span>
+            <span class="q-bar"><span class="q-bar-fill unlimited"></span></span>
+            <span class="q-count unlimited">无限额度</span>
+          </div>`;
+        }
+        // premium 且今日未消耗（被 onlyUsedRateLimitsByModel 过滤）
+        const label = meta.displayName || shortName;
+        return `<div class="quota-row${isBound ? ' bound' : ''}">
+          <span class="q-model" title="${escapeHtml(m)}">${escapeHtml(label)}${boundTag}</span>
+          <span class="q-bar"><span class="q-bar-fill fresh"></span></span>
+          <span class="q-count fresh">受每日额度限制 · 今日未消耗</span>
         </div>`;
       }).join('');
-      const firstReset = entries.find(q => q.resetAt)?.resetAt;
+
+      const tracked = Object.values(qMap);
+      const firstReset = tracked.find(q => q.resetAt)?.resetAt;
       const resetLine = firstReset ? `<div class="quota-reset">重置于 ${new Date(firstReset).toLocaleString()}</div>` : '';
-      const note = `<div class="quota-reset">额度仅限制「新会话准入」，已运行的会话不受影响</div>`;
-      return `<div class="quota-block"><div class="quota-title">模型配额（会话 · 已用/上限）</div>${rows}${resetLine}${note}</div>`;
+      const totalUsed = tracked.filter(q => (q.recentCount ?? 0) > 0).length;
+      const note = `<div class="quota-reset" style="margin-top:6px">限额仅限制新会话准入，已运行的会话不受影响</div>`;
+      const title = `模型配额（共 ${list.length} 个 · ${totalUsed} 个今日有消耗）`;
+      if (rows === '') return '';
+      return `<div class="quota-block"><div class="quota-title">${title}</div>${rows}${resetLine}${note}</div>`;
     }
 
     function renderTokenPools() {
@@ -990,7 +1044,7 @@
           sessionInfo = `<div style="margin-top:8px;font-size:0.8rem;color:#ffffff;" class="${blurClass}">会话: ${pool.session_instance_id.substring(0,12)}...${pool.session_expires_at ? ' | 过期: ' + new Date(pool.session_expires_at).toLocaleTimeString() : ''}</div>`;
         }
         const lockedBadge = lockedModel ? `<div class="locked-model-badge"><i class="bi bi-lock-fill lock-icon"></i><span>已锁定: ${escapeHtml(lockedModel)}</span><button class="unlock-btn" onclick="unlockSession()">解锁</button></div>` : '';
-        const quotaHtml = renderQuotaBlock(pool.quota_by_model);
+        const quotaHtml = renderQuotaBlock(pool.quota_by_model, pool.model || pool.locked_model);
         return `<div class="${cardClass}"><div class="pool-header"><div class="pool-name">${pool.name} ${tierBadge}</div><div class="pool-status ${statusClass}">${statusText}</div></div>${boundLine}${runsHtml}${sessionInfo}${lockedBadge}${quotaHtml}${pool.last_error ? `<div class="text-danger" style="margin-top:8px;font-size:0.8rem;">${pool.last_error}</div>` : ''}</div>`;
       }).join('');
     }
