@@ -27,12 +27,13 @@ src/                  # All logic (15 CommonJS modules)
   handlers.js         # HTTP router + chat proxying + country detection
 dashboard.html        # Liquid-glass web UI (served at /)
 docs/                 # Reverse-engineered wire specs (READ before touching upstream)
-.config/              # Runtime state (config.json, sessions.json, tokens.json)
+.config/              # Runtime state (ignored: config, sessions, tokens, credentials)
 ```
 
-There is **no test suite** — `node --check proxy.js && node --check src/*.js`
-is the only verification. `skills.md` and `DASHBOARD_GUIDE.md` document the
-dashboard. There is **no `.gitignore`** — never commit `.config/` or `node_modules/`.
+There is **no test suite**. The baseline verification is
+`node --check proxy.js && node --check src/*.js`; the inline dashboard script
+must also be extracted and checked with `node --check`. `.config/` and
+`node_modules/` are excluded by `.gitignore` and must never be committed.
 
 ## Commands
 
@@ -98,9 +99,11 @@ These are the anti-abuse gates that break silently if you touch the wrong line:
   30-min grace window after `expiresAt`; a 45s `x-freebuff-heartbeat: 1` GET
   keeps the instance alive. Instances persist across restarts via
   `.config/sessions.json` and are re-validated (GET) before reuse.
-- **Model lock**: a server-side model binding is *accepted*, never churned —
-  re-admission burns quota at 0.1h granularity and the server re-binds anyway.
-  Full tier does an explicit switch (DELETE old instance + POST requested model).
+- **Model lock**: a server-side model binding is not silently accepted when the
+  caller explicitly requests another model. Full tier switches with DELETE old
+  instance + POST requested model (approximately 0.1h quota cost). Limited tier
+  may have to reuse the server-bound live session after `model_locked`; the
+  requested and actual models must remain visible in logs and health data.
 - **429**: the token enters cooldown and the retry rotates to another account
   (up to 3 tries). A cross-account retry must first close the abandoned run with
   a failed `FINISH`, then re-admit session + run on the new account.
@@ -112,11 +115,34 @@ These are the anti-abuse gates that break silently if you touch the wrong line:
   `isNodeStream()` from `util.js` when consuming upstream bodies.
 - **Debounce**: 1.3s minimum gap between proxied chat requests (`util.debounceRequest`).
 - **Debug**: `WIRE_DEBUG=1` prints outbound chat headers/body.
+- **Provider compatibility** (`handlers.js`): OpenAI JSON and SSE responses
+  recursively remove unsupported provider `reasoning_details` fields. Clean
+  SSE frames are passed through byte-for-byte; this protects strict clients
+  without rewriting normal responses.
+
+## Runtime status and quota semantics
+
+- `GET /healthz` is the authoritative local status surface. Each token entry
+  includes the current session, access tier, bound model, quota snapshot and a
+  `session_detail` object containing server status/message, requested/current
+  model, `availableHours`, queue information, source time and whether the data
+  is stale.
+- Quota snapshots come from the non-consuming Freebuff session GET and are
+  cached for 30 seconds. `rateLimitsByModel` only contains server-reported
+  rate-limited models; a missing entry does **not** prove that a model is
+  unlimited or currently available.
+- Availability, quota exhaustion, access tier (`full`/`limited`) and session
+  lifecycle are separate concepts. In particular, `model_unavailable` and its
+  server-provided `availableHours` take precedence over local metadata.
+- The dashboard shows Beijing, US Pacific and US Eastern clocks for reference,
+  plus the Pacific quota reset countdown. Fable availability is server-backed
+  when detail is available; any local fallback is explicitly an estimate and
+  must not be treated as an upstream guarantee.
 
 ## Model Registry
 
-`model-registry.js` applies a hardcoded 8-model table immediately (startup never
-blocks on network), then hot-updates in the background from four GitHub sources:
+`model-registry.js` applies a hardcoded bootstrap table immediately (startup
+never blocks on network), then hot-updates in the background from four GitHub sources:
 `free-agents.ts`, `freebuff-models.ts`, `freebuff-model-ids.ts`, `model-config.ts`
 (parse → resolve variable map → build `model -> agent` + metadata). Current roots
 are `base3-*` single-loop agents. `CANONICAL_MODEL_ALIASES` maps slashless slugs
@@ -137,11 +163,12 @@ filters excluded models.
 
 - `docs/official-desktop-chat-request-spec.md` — authoritative chat wire format.
 - `docs/official-desktop-aux-requests-spec.md` — session/ads/agent-runs/streak format.
-- `DASHBOARD_GUIDE.md`, `README.md` — user-facing docs (README is partly stale).
+- `README.md` — user-facing setup, configuration and endpoint documentation.
 
 ## Security Notes
 
-- `.config/` holds live tokens (`tokens.json` is written with `0600`). **There is
-  no `.gitignore`** — do not commit `.config/` or `node_modules/`.
+- `.config/` holds live tokens (`tokens.json` is written with `0600`) and is
+  ignored by `.gitignore`; verify status before committing. Do not commit
+  `.config/`, `node_modules/`, `.env` files or logs.
 - Tokens are masked (`first8...last4`) in `/healthz`, `/api/tokens`, and the dashboard.
 - `API_KEYS` enables proxy auth (`x-api-key` header or `Authorization: Bearer`).

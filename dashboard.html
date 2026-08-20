@@ -325,6 +325,7 @@
     .quota-row .q-bar-fill.fresh { background: rgba(88, 166, 255, 0.25); width: 100% !important; }
     .quota-row .q-count.unlimited { flex-basis: 72px; color: rgba(255, 255, 255, 0.45); }
     .quota-row .q-count.fresh { flex-basis: 190px; color: rgba(88, 166, 255, 0.85); font-size: 0.68rem; }
+    .quota-row .q-count.unknown { flex-basis: 140px; color: rgba(255, 255, 255, 0.45); font-size: 0.68rem; }
     .timezone-bar {
       position: relative;
       border-radius: 10px;
@@ -1033,10 +1034,7 @@
       //   web/src/server/free-session/public-api.ts 的 RATE_LIMITS 表 + onlyUsedRateLimitsByModel）：
       //   1. 有 quota_by_model 数据且 limit > 0 → 进度条「已用 X/Y」
       //   2. 有 quota_by_model 数据且 limit == 0 → 「额度 0/0 · 当前不可用」
-      //   3. 无 quota_by_model 数据 + premium:true → 「共享池·今日未消耗」
-      //   4. 无 quota_by_model 数据 + premium:false → 「无独立额度·未列入限额表」
-      // 注意：「无独立额度」等同官方「unlimited」语义（MiMo 2.5 当前的官方版 unlimited
-      // 模型），但不应被读成「完全无限制」——当前会话级限制仍存在（pool-level）。
+      //   3. 无 quota_by_model 数据 → 不伪造额度，显示「暂无实时配额」
       const qMap = quotaByModel || {};
       // Include server-reported quota rows even when the model is hidden from
       // the public catalog (for example GLM, which is currently blacklisted).
@@ -1048,14 +1046,27 @@
       // Prefer this token card's model; retain a fallback for older callers.
       const boundFull = boundModel || tokens.map(p => p.model || p.locked_model).filter(Boolean)[0] || null;
       const boundShort = boundFull ? boundFull.split('/').pop() : null;
+      const detail = tokens.find(p => (p.model || p.locked_model) === boundFull)?.session_detail
+        || tokens[0]?.session_detail || null;
+      const closedModel = detail?.status === 'model_unavailable'
+        ? (detail.requestedModel || detail.currentModel || null) : null;
 
       const rows = list.map(m => {
         const shortName = m.split('/').pop();
         const meta = modelMetadata[m] || {};
         const q = qMap[m] || null;
-        const isPremium = !!meta.premium;
         const isBound = (boundFull && m === boundFull) || (boundShort && shortName === boundShort);
         const boundTag = isBound ? '<span class="badge bg-primary" style="font-size:0.55rem;margin-left:4px;vertical-align:middle">使用中</span>' : '';
+
+        if (closedModel && m === closedModel) {
+          const label = meta.displayName || shortName;
+          const reason = detail.availableHours ? `当前不可用 · ${detail.availableHours}` : '当前不可用';
+          return `<div class="quota-row${isBound ? ' bound' : ''} drained">
+            <span class="q-model" title="${escapeHtml(m)}">${escapeHtml(label)}${boundTag}</span>
+            <span class="q-bar"><span class="q-bar-fill drained" style="width:100%"></span></span>
+            <span class="q-count drained">${escapeHtml(reason)}</span>
+          </div>`;
+        }
 
         if (q && typeof q.limit === 'number' && q.limit > 0) {
           const used = q.recentCount ?? 0;
@@ -1076,23 +1087,13 @@
             <span class="q-count drained">额度 0/0 · 当前不可用</span>
           </div>`;
         }
-        if (!isPremium) {
-          // Server did not list this model in RATE_LIMITS — official semantics
-          // (Minimax is cheap enough to leave unlimited). Fall through MiMo 2.5
-          // is the explicitly-designated "unlimited" model as of 2026-08-18.
-          const label = meta.displayName || shortName;
-          return `<div class="quota-row${isBound ? ' bound' : ''}">
-            <span class="q-model" title="${escapeHtml(m)}">${escapeHtml(label)}${boundTag}</span>
-            <span class="q-bar"><span class="q-bar-fill unlimited"></span></span>
-            <span class="q-count unlimited">无独立额度</span>
-          </div>`;
-        }
-        // Premium model not seen today (filtered by onlyUsedRateLimitsByModel).
+        // The server omitted this model from rateLimitsByModel. This is not
+        // enough evidence to call it unlimited or available.
         const label = meta.displayName || shortName;
         return `<div class="quota-row${isBound ? ' bound' : ''}">
           <span class="q-model" title="${escapeHtml(m)}">${escapeHtml(label)}${boundTag}</span>
           <span class="q-bar"><span class="q-bar-fill fresh"></span></span>
-          <span class="q-count fresh">共享池 · 今日未消耗</span>
+          <span class="q-count unknown">暂无实时配额</span>
         </div>`;
       }).join('');
 
@@ -1100,7 +1101,7 @@
       const firstReset = tracked.find(q => q.resetAt)?.resetAt;
       const resetLine = firstReset ? `<div class="quota-reset">重置于 ${new Date(firstReset).toLocaleString()}</div>` : '';
       const totalUsed = tracked.filter(q => (q.recentCount ?? 0) > 0).length;
-      const note = `<div class="quota-reset" style="margin-top:6px">进度条来自官方 RATE_LIMITS；未列入该表 ⇒ 服务端未发放独立额度（官方 unlimited：MiMo 2.5 一行）</div>`;
+      const note = `<div class="quota-reset" style="margin-top:6px">仅服务端返回的 rateLimitsByModel 显示额度；未返回不代表可用或无限</div>`;
       const title = `模型配额（共 ${list.length} 个 · ${totalUsed} 个今日有消耗）`;
       if (rows === '') return '';
       return `<div class="quota-block"><div class="quota-title">${title}</div>${rows}${resetLine}${note}</div>`;
@@ -1120,9 +1121,11 @@
       const blurClass = blurTokensEnabled ? 'token-blurred' : '';
       container.innerHTML = proxyData.token_state.map(pool => {
         const sessionStatus = pool.session_status || 'none';
-        const statusClass = sessionStatus === 'active' ? 'status-online' : 'status-offline';
-        const statusTextMap = { active: '活跃', none: '无会话', ended: '已结束', superseded: '被接管', country_blocked: '地区受限', model_locked: '模型锁定', rate_limited: '限流', spend_limited: '额度用尽', ip_capped: 'IP 上限', banned: '已封禁' };
-        const statusText = statusTextMap[sessionStatus] || sessionStatus;
+        const statusTextMap = { active: '活跃', none: '无会话', queued: '排队中', ended: '已结束', superseded: '被接管', country_blocked: '地区受限', model_locked: '模型锁定', model_unavailable: '时段不可用', premium_slot_taken: '高级会话被占用', waiting_room_required: '需要重新排队', rate_limited: '限流', spend_limited: '额度用尽', ip_capped: 'IP 上限', banned: '已封禁', session_limit_reached: '会话数已满' };
+        const detail = pool.session_detail || {};
+        const status = detail.status || sessionStatus;
+        const statusClass = status === 'active' ? 'status-online' : 'status-offline';
+        const statusText = statusTextMap[status] || status;
         const tier = pool.access_tier || null;
         const tierLabel = tier === 'full' ? '完整版 (full)' : tier === 'limited' ? '受限版 (limited)' : (tier || '未知档位');
         const tierBadge = tier
@@ -1143,8 +1146,10 @@
           sessionInfo = `<div style="margin-top:8px;font-size:0.8rem;color:#ffffff;" class="${blurClass}">会话: ${pool.session_instance_id.substring(0,12)}...${pool.session_expires_at ? ' | 过期: ' + new Date(pool.session_expires_at).toLocaleTimeString() : ''}</div>`;
         }
         const lockedBadge = lockedModel ? `<div class="locked-model-badge"><i class="bi bi-lock-fill lock-icon"></i><span>已锁定: ${escapeHtml(lockedModel)}</span><button class="unlock-btn" onclick="unlockSession()">解锁</button></div>` : '';
+        const detailHtml = detail.message || detail.availableHours
+          ? `<div class="quota-reset" style="margin-top:8px;color:#ffcc66">${escapeHtml(detail.message || ('可用时段：' + detail.availableHours))}</div>` : '';
         const quotaHtml = renderQuotaBlock(pool.quota_by_model, pool.model || pool.locked_model);
-        return `<div class="${cardClass}"><div class="pool-header"><div class="pool-name">${pool.name} ${tierBadge}</div><div class="pool-status ${statusClass}">${statusText}</div></div>${boundLine}${runsHtml}${sessionInfo}${lockedBadge}${quotaHtml}${pool.last_error ? `<div class="text-danger" style="margin-top:8px;font-size:0.8rem;">${pool.last_error}</div>` : ''}</div>`;
+        return `<div class="${cardClass}"><div class="pool-header"><div class="pool-name">${pool.name} ${tierBadge}</div><div class="pool-status ${statusClass}">${statusText}</div></div>${boundLine}${runsHtml}${sessionInfo}${lockedBadge}${detailHtml}${quotaHtml}</div>`;
       }).join('');
     }
 
@@ -1421,8 +1426,9 @@
       return { h, m, s: remain };
     }
     function fableAvailability() {
-      // Beijing 21:00 — next-day 08:00, Mon–Fri only. Using the local Beijing
-      // weekday/hour (no DST involved) keeps the gate stable.
+      // This is only a local estimate for the timezone bar. The server's
+      // model_unavailable/availableHours response is authoritative because the
+      // deployment window uses US timezones and DST rules.
       const fmt = _tzFmtCache.get('bj|gate') || new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Shanghai', hour12: false, weekday: 'short', hour: '2-digit', minute: '2-digit' });
       _tzFmtCache.set('bj|gate', fmt);
       const parts = fmt.formatToParts(new Date());
@@ -1433,6 +1439,20 @@
       const isWeekday = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].includes(weekday);
       const inNight = total >= 21 * 60 || total < 8 * 60;
       return { available: isWeekday && inNight, weekday, hour: +obj.hour, minute: +obj.minute };
+    }
+    function fableServerState() {
+      const fable = 'anthropic/claude-fable-5';
+      const tokens = (proxyData && proxyData.token_state) || [];
+      for (const token of tokens) {
+        const detail = token.session_detail || {};
+        const model = detail.requestedModel || detail.currentModel || token.model || token.locked_model;
+        if (model !== fable) continue;
+        if (detail.status === 'model_unavailable') {
+          return { state: 'closed', label: detail.availableHours ? `服务端不可用 · ${detail.availableHours}` : '服务端不可用' };
+        }
+        if (detail.status === 'active') return { state: 'available', label: '服务端可用' };
+      }
+      return null;
     }
     function updateTimezones() {
       const bjEl = document.getElementById('tzBj');
@@ -1454,9 +1474,17 @@
       }
       if (etMetaEl) etMetaEl.textContent = fmtTzDate('America/New_York');
       if (fableEl) {
-        const f = fableAvailability();
-        if (f.available) { fableEl.className = 'tz-badge available'; fableEl.textContent = '可用'; }
-        else { fableEl.className = 'tz-badge unavailable'; fableEl.textContent = '不可用'; }
+        const server = fableServerState();
+        if (server) {
+          fableEl.className = `tz-badge ${server.state === 'available' ? 'available' : 'unavailable'}`;
+          fableEl.textContent = server.label;
+          fableEl.title = '来自 /healthz 的服务端 session_detail';
+        } else {
+          const estimate = fableAvailability();
+          fableEl.className = `tz-badge ${estimate.available ? 'available' : 'unavailable'}`;
+          fableEl.textContent = `本地估算：${estimate.available ? '可用' : '不可用'}`;
+          fableEl.title = '本地北京时间估算，仅供参考，最终以服务端状态为准';
+        }
       }
     }
 

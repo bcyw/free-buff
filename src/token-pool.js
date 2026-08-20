@@ -31,6 +31,7 @@ class TokenPool {
     this.cooldowns = new Map(); // token -> cooldownUntilMs (429 rate-limit)
     this.invalidTokens = new Map(); // token -> { reason, at } (401, sign-in expired)
     this.quotaCache = new Map(); // token -> { at, rateLimitsByModel, accessTier, desktopSessionCounts }
+    this.sessionDetails = new Map(); // token -> latest non-consuming server detail
     this._restorePersistedSessions();
   }
 
@@ -197,7 +198,13 @@ class TokenPool {
       resetTimeZone: state.resetTimeZone || null,
       entitlementBreakdown: entitlement,
     };
-    return { status: 'active', instanceID, expiresAt, countryCode, remainingMs, accessTier, countryBlockReason, model, rateLimitsByModel, quota };
+    return {
+      status: state.status || 'active', instanceID, expiresAt, countryCode, remainingMs,
+      accessTier, countryBlockReason, model, rateLimitsByModel, quota,
+      message: state.message || null,
+      requestedModel: state.requestedModel || null,
+      availableHours: state.availableHours || null,
+    };
   }
 
   // Official explicit model switch (CLI "End your active X session to
@@ -475,13 +482,23 @@ class TokenPool {
         accessTier: (rt && rt.accessTier) || null,
         desktopSessionCounts: (rt && rt.desktopSessionCounts) || null,
         referral: (rt && rt.referral) || null,
+        status: (rt && rt.status) || 'none',
+        message: (rt && rt.message) || null,
+        requestedModel: (rt && rt.requestedModel) || null,
+        currentModel: (rt && (rt.currentModel || rt.model)) || null,
+        availableHours: (rt && rt.availableHours) || null,
+        queueDepthByModel: (rt && (rt.queueDepthByModel || rt.queue_depth_by_model)) || null,
+        stale: false,
       };
       this.quotaCache.set(token, snap);
+      this.sessionDetails.set(token, snap);
       return snap;
     } catch (e) {
       // Refresh failed (network): return any stale snapshot rather than null so
       // the UI keeps showing the last known quota.
-      return cached || null;
+      const stale = cached ? { ...cached, stale: true, error: e.message } : null;
+      if (stale) this.sessionDetails.set(token, stale);
+      return stale;
     }
   }
 

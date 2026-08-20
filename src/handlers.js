@@ -112,6 +112,16 @@ async function handleHealthz(req, res) {
     // rateLimitsByModel when the POST admission body omitted it.
     const snap = await tokenPool.refreshQuotaSnapshot(token);
     const quotaByModel = bestSession?.rateLimitsByModel || snap?.rateLimitsByModel || null;
+    const sessionDetail = {
+      status: bestSession?.status === 'active' ? 'active' : (snap?.status || bestSession?.status || 'none'),
+      message: snap?.message || bestSession?.message || null,
+      requestedModel: snap?.requestedModel || bestSession?.requestedModel || null,
+      currentModel: snap?.currentModel || bestSession?.model || null,
+      availableHours: snap?.availableHours || bestSession?.availableHours || null,
+      queueDepthByModel: snap?.queueDepthByModel || null,
+      sourceAt: snap?.at ? new Date(snap.at).toISOString() : null,
+      stale: !!snap?.stale,
+    };
     tokenState.push({
       name: `token-${tokenPool.tokens.indexOf(token) + 1}`,
       token: maskedToken,
@@ -131,6 +141,7 @@ async function handleHealthz(req, res) {
       quota: bestSession?.quota || null,
       desktop_session_counts: snap?.desktopSessionCounts || null,
       referral: snap?.referral || null,
+      session_detail: sessionDetail,
       runs: []
     });
   }
@@ -629,29 +640,29 @@ async function writeOpenAISuccessResponse(res, resp) {
 // with "JSON parsing failed". Strip the provider extension before forwarding.
 function stripUnsupportedReasoningFields(payload) {
   if (!payload || typeof payload !== 'object') return payload;
+  if (Array.isArray(payload)) {
+    for (const item of payload) stripUnsupportedReasoningFields(item);
+    return payload;
+  }
   if (payload.reasoning_details !== undefined) delete payload.reasoning_details;
-  if (Array.isArray(payload.choices)) {
-    for (const choice of payload.choices) {
-      if (choice && choice.delta && choice.delta.reasoning_details !== undefined) {
-        delete choice.delta.reasoning_details;
-      }
-      if (choice && choice.message && choice.message.reasoning_details !== undefined) {
-        delete choice.message.reasoning_details;
-      }
-    }
+  for (const value of Object.values(payload)) {
+    if (value && typeof value === 'object') stripUnsupportedReasoningFields(value);
   }
   return payload;
 }
 
 // Rewrite one SSE `data: ...` JSON payload by stripping the unsupported field.
 // Falls back to the original payload on parse failure so we never emit blank
-// chunks.
+// chunks. Frames with nothing to strip are returned byte-identical (we only
+// re-serialize when the sanitizer actually removed a field).
 function sanitizeSseDataLine(rawPayload) {
   if (!rawPayload || rawPayload === '[DONE]') return rawPayload;
   try {
     const parsed = JSON.parse(rawPayload);
+    const before = JSON.stringify(parsed);
     stripUnsupportedReasoningFields(parsed);
-    return JSON.stringify(parsed);
+    const after = JSON.stringify(parsed);
+    return before === after ? rawPayload : after;
   } catch (_) {
     return rawPayload;
   }
@@ -660,43 +671,58 @@ function sanitizeSseDataLine(rawPayload) {
 async function pipeBodyToResponseAndCaptureModel(body, res) {
   let model = null;
   let buffer = '';
-  let captured = false;
-  let scrubbedOnce = false;
 
-  function flushCaptured() {
-    if (!buffer) return;
-    // Only strip on the first chunk that contains a parseable JSON payload — the
-    // capture regex is tolerant of trailing bytes, so we sanitize by editing
-    // the first `data: {…}` frame; subsequent frames keep streaming untouched.
-    if (!scrubbedOnce) {
-      buffer = buffer.replace(/^(data:\s*)([\s\S]*?)(\r?\n\r?\n)/, (m, header, payload, tail) => {
-        scrubbedOnce = true;
-        return header + sanitizeSseDataLine(payload.trim()) + tail;
-      });
+  function processEvent(event, separator) {
+    const lines = event.split(/(\r?\n)/);
+    for (let i = 0; i < lines.length; i += 2) {
+      const line = lines[i];
+      if (!line || !line.startsWith('data:')) continue;
+      const payload = line.slice(5).trimStart();
+      if (payload !== '[DONE]') {
+        const sanitized = sanitizeSseDataLine(payload);
+        if (sanitized !== payload) {
+          lines[i] = `data: ${sanitized}`;
+          try {
+            const parsed = JSON.parse(sanitized);
+            if (!model && parsed.model) model = parsed.model;
+          } catch (_) {}
+        } else {
+          try {
+            const parsed = JSON.parse(payload);
+            if (!model && parsed.model) model = parsed.model;
+          } catch (_) {}
+        }
+      }
     }
-    res.write(Buffer.from(buffer));
-    buffer = '';
+    res.write(Buffer.from(lines.join('') + separator));
   }
 
   function processChunk(chunk) {
     const str = chunk instanceof Buffer ? chunk.toString() : typeof chunk === 'string' ? chunk : new TextDecoder().decode(chunk);
-    if (!captured) {
-      buffer += str;
-      const match = buffer.match(/data:\s*(\{.*?\})\n\n/);
-      if (match) {
-        captured = true;
-        try { const parsed = JSON.parse(match[1]); if (parsed.model) model = parsed.model; } catch (_) {}
-        flushCaptured();
-        return;
+    buffer += str;
+    for (;;) {
+      const lf = buffer.indexOf('\n\n');
+      const crlf = buffer.indexOf('\r\n\r\n');
+      let end = -1;
+      let separator = '';
+      if (crlf !== -1 && (lf === -1 || crlf < lf)) {
+        end = crlf;
+        separator = '\r\n\r\n';
+      } else if (lf !== -1) {
+        end = lf;
+        separator = '\n\n';
       }
+      if (end === -1) break;
+      const event = buffer.slice(0, end);
+      buffer = buffer.slice(end + separator.length);
+      processEvent(event, separator);
     }
-    res.write(chunk instanceof Buffer ? chunk : Buffer.from(typeof chunk === 'string' ? chunk : chunk));
   }
 
   if (isNodeStream(body)) {
     return new Promise((resolve, reject) => {
       body.on('data', chunk => { processChunk(chunk); });
-      body.on('end', () => { if (!captured) { res.write(Buffer.from(buffer)); } res.end(); resolve(model); });
+      body.on('end', () => { if (buffer) processEvent(buffer, ''); res.end(); resolve(model); });
       body.on('error', reject);
     });
   }
@@ -704,7 +730,7 @@ async function pipeBodyToResponseAndCaptureModel(body, res) {
     const reader = body.getReader();
     function pump() {
       reader.read().then(({ done, value }) => {
-        if (done) { if (!captured) { res.write(Buffer.from(buffer)); } res.end(); resolve(model); return; }
+        if (done) { if (buffer) processEvent(buffer, ''); res.end(); resolve(model); return; }
         processChunk(value);
         pump();
       }).catch(reject);

@@ -7,12 +7,14 @@ OpenAI- 与 Anthropic-兼容的 HTTP 代理，前端对接 Codebuff 的免费 AP
 - **OpenAI 兼容** — `/v1/chat/completions`（SSE 流式）+ `/v1/models`
 - **Anthropic 兼容** — `/v1/messages` + `/v1/messages/count_tokens`，自动格式转换
 - **多 Token 轮询** — 多个账号 token 轮询，会话缓存 + 45s 心跳 + 跨重启持久化
-- **模型锁处理** — full tier 显式切换会话（DELETE + POST），limited tier 接受服务端绑定模型
+- **模型锁处理** — full tier 按请求显式切换会话（DELETE + POST）；limited tier 在服务端锁定时复用绑定会话
 - **配额可见** — dashboard 逐模型显示 `已用/上限` 进度条；控制台逐请求打印 `[Quota]` 摘要
 - **动态模型注册表** — 从 GitHub 拉取官方模型/agent 映射，网络不可用时回退到硬编码表
 - **出口代理** — `UPSTREAM_PROXY` 支持 http/https/socks4/socks5，让访问 tier 按出口节点地区判定
 - **OAuth 登录** — 复刻官方 CLI issue+poll 流，登录后保存到项目 `.config/`（0600）
-- **仪表盘** — Liquid-glass UI：token/session 状态、逐模型配额、OAuth、广告、国家显示
+- **仪表盘** — Liquid-glass UI：token/session 状态、逐模型配额、full/limited tier、OAuth、广告、国家显示
+- **状态兼容** — 以服务端 session 状态和 `availableHours` 为准，避免用过时的客户端模型 metadata 推断可用性
+- **客户端兼容** — OpenAI 响应会递归移除 provider 不兼容的 `reasoning_details` 字段，避免严格 SDK 解析失败
 - **HAR 风格指纹** — 浏览器兼容请求头（`Accept-Encoding`/`Connection`/`Host`/UA）过上游校验
 - **429 重试** — 跨账号轮换重试（最多 3 次），先关闭废弃 run 再重新入场
 
@@ -45,7 +47,7 @@ docs/                     # 逆向的线格式规格（改上游前必读）
 
 ```bash
 npm install
-node proxy.js        # 默认监听 0.0.0.0:3001
+node proxy.js        # 默认监听所有接口的 0.0.0.0:3001
 ```
 
 或使用 Bun：
@@ -137,22 +139,32 @@ await fetch('http://127.0.0.1:3001/v1/messages', {
 });
 ```
 
-## 模型
+## 模型与实时配额
 
-注册表从 Codebuff 源码热更新；硬编码回退表如下（agent 均为 base3 单循环）：
+注册表从 Codebuff 源码热更新；网络不可用时使用下表作为启动回退（agent
+均为 base3 单循环）。这张表是路由和展示 metadata，不是实时权限或配额表；
+实际可用模型、访问 tier 和限额以服务端 session 响应为准。
 
 | 模型 | 类型 |
 |------|------|
 | `deepseek/deepseek-v4-pro` | premium |
-| `deepseek/deepseek-v4-flash` | 免费/无限 |
+| `deepseek/deepseek-v4-flash` | 服务端决定 |
 | `openai/gpt-5.6-luna` | premium |
-| `minimax/minimax-m3` | premium |
-| `mimo/mimo-v2.5` | 免费/无限 |
-| `anthropic/claude-fable-5` | premium（限时开放） |
-| `google/gemini-3.1-flash-lite` | 免费 |
-| `google/gemini-3.1-pro-preview` | premium |
+| `minimax/minimax-m3` | 服务端决定 |
+| `mimo/mimo-v2.5` | 服务端决定 |
+| `anthropic/claude-fable-5` | 服务端决定（可能限时） |
+| `google/gemini-3.1-flash-lite` | 服务端决定 |
+| `google/gemini-3.1-pro-preview` | 服务端决定 |
 
-短别名自动解析（如 `deepseek-v4-pro` → `deepseek/deepseek-v4-pro`），完整表见 `src/constants.js` 的 `CANONICAL_MODEL_ALIASES`。`glm` 系模型默认黑名单。
+短别名自动解析（如 `deepseek-v4-pro` → `deepseek/deepseek-v4-pro`），完整表见
+`src/constants.js` 的 `CANONICAL_MODEL_ALIASES`。`glm` 系模型默认黑名单。
+
+`/healthz` 的 `quota_by_model` 只显示上游实际返回的 `rateLimitsByModel`：有
+`limit` 的模型显示 `recentCount/limit`，没有条目不代表无限额度，也不代表当前
+可用。`session_detail` 的 `model_unavailable`、`message` 和 `availableHours`
+是判断模型时段的权威来源。dashboard 另外显示北京时间、US Pacific、US Eastern
+时钟，以及按 Pacific 时区计算的配额重置倒计时；这些时钟用于对照节点和本地时间，
+不能替代上游状态。
 
 ## API 端点
 
@@ -160,7 +172,7 @@ await fetch('http://127.0.0.1:3001/v1/messages', {
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| `GET` | `/healthz` | 健康检查 + token/session/配额状态 |
+| `GET` | `/healthz` | 健康检查 + token/session/tier/绑定模型/配额/可用时段状态 |
 | `GET` | `/v1/models` | OpenAI 模型列表 |
 | `POST` | `/v1/chat/completions` | OpenAI 聊天（流式） |
 | `POST` | `/v1/messages` | Anthropic 消息（自动转 OpenAI） |
@@ -187,7 +199,9 @@ await fetch('http://127.0.0.1:3001/v1/messages', {
 
 - **数据收集**：DeepSeek 模型明确标注 "Collects data for training"，敏感代码请避免使用，改用 `mimo/mimo-v2.5`。
 - **封号风险**：此代理绕过 Freebuff 的 CLI-only 校验（省略 `cost_mode` 字段），违反其 ToS，账号可能被封禁。使用风险自负。
-- **限时模型**：`claude-fable-5` 仅在部署时段（周一至周五 9am ET–5pm PT，即北京时间 21:00–次日 08:00）可用。
+- **限时模型**：`claude-fable-5` 的可用时段由上游 session 的
+  `model_unavailable.availableHours` 决定。不要用固定北京时间区间推断可用性；
+  夏令时、工作日规则及服务端临时调整都可能影响实际结果。
 
 ## 依赖
 
