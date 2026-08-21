@@ -1,4 +1,4 @@
-# Freebuff2Opencode Proxy — Developer Guide
+# Free-Buff Proxy — Developer Guide
 
 OpenAI- and Anthropic-compatible HTTP proxy that fronts Codebuff's free API
 (`www.codebuff.com`). Translated from the Go Freebuff2API to Node.js/Bun. The
@@ -25,7 +25,7 @@ src/                  # All logic (15 CommonJS modules)
   util.js             # Generic helpers (debounce, aliases, schema, streams)
   oauth.js            # Official sign-in flow (CLI mode + HTTP handlers)
   handlers.js         # HTTP router + chat proxying + country detection
-dashboard.html        # Liquid-glass web UI (served at /)
+dashboard.html        # Self-contained web UI (served at /, zero external deps)
 docs/                 # Reverse-engineered wire specs (READ before touching upstream)
 .config/              # Runtime state (ignored: config, sessions, tokens, credentials)
 ```
@@ -157,7 +157,7 @@ filters excluded models.
 - Ops: `/healthz`, `/api/config`, `/api/tokens`, `/api/models`, `/api/session/unlock`
 - OAuth: `/api/auth/start`, `/api/auth/status`, `/api/auth/cancel`
 - Ads/streak: `/api/ads`, `/api/ads/impression`, `/api/ads/click`, `/api/streak`
-- UI: `/` and `/dashboard` (serves dashboard.html), `/api/bg` (Bing wallpaper)
+- UI: `/` and `/dashboard` (serves dashboard.html)
 
 ## Read Before Changing Sensitive Areas
 

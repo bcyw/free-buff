@@ -13,7 +13,7 @@ if exist "%CONFIG_FILE%" (
 title FREEBUFFProxy
 
 echo ==================================================
-echo  Freebuff2Opencode Proxy — http://localhost:%PORT%
+echo  Free-Buff Proxy — http://localhost:%PORT%
 echo ==================================================
 echo.
 
@@ -102,7 +102,7 @@ if %ERRORLEVEL% equ 0 (
 echo [ERROR] Neither Bun nor Node.js found in PATH.
 echo        Install Node: https://nodejs.org
 echo        Install Bun:  https://bun.sh
-@if not defined OPENCODE_ATTACH timeout /t 5
+@if not defined FREEBUFF_ATTACH timeout /t 5
 exit
 
 :start
@@ -136,7 +136,7 @@ echo.
 echo [ERROR] Proxy exited with code %EXIT_CODE%
 
 :done
-if not defined OPENCODE_ATTACH (
+if not defined FREEBUFF_ATTACH (
     echo.
     echo Proxy stopped.
     timeout /t 5 /nobreak >nul

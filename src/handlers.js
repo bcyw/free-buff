@@ -109,9 +109,12 @@ async function handleHealthz(req, res) {
     const bestSession = allSessions.find(s => s.status === 'active') || allSessions[0] || null;
     const lockedModel = tokenPool.lockedModels.get(token) || null;
     // Zero-cost quota snapshot (refreshTier GET, cached 30s). Fills
-    // rateLimitsByModel when the POST admission body omitted it.
+    // rateLimitsByModel when the POST admission body omitted it. The FRESH
+    // snapshot wins over the admission-time copy on the cached session: the
+    // session object only updates on re-admission, so preferring it froze
+    // the quota display for the whole life of a reused instance.
     const snap = await tokenPool.refreshQuotaSnapshot(token);
-    const quotaByModel = bestSession?.rateLimitsByModel || snap?.rateLimitsByModel || null;
+    const quotaByModel = snap?.rateLimitsByModel || bestSession?.rateLimitsByModel || null;
     const sessionDetail = {
       status: bestSession?.status === 'active' ? 'active' : (snap?.status || bestSession?.status || 'none'),
       message: snap?.message || bestSession?.message || null,
@@ -129,7 +132,9 @@ async function handleHealthz(req, res) {
       session_instance_id: bestSession?.instanceID || null,
       session_expires_at: bestSession?.expiresAt || null,
       country_code: bestSession?.countryCode || state.detectedCountry || null,
-      access_tier: bestSession?.accessTier || snap?.accessTier || null,
+      // Same freshness rule as quota_by_model above: the live GET reflects
+      // tier changes; the session field is an admission-time leftover.
+      access_tier: snap?.accessTier || bestSession?.accessTier || null,
       country_block_reason: bestSession?.countryBlockReason || null,
       remaining_ms: bestSession?.remainingMs || null,
       // Current server-bound model (the model the live session is admitted on).
@@ -162,7 +167,7 @@ async function handleHealthz(req, res) {
 async function handleModels(req, res) {
   if (req.method !== 'GET') { writeOpenAIError(res, 405, 'method not allowed', 'invalid_request_error', ''); return; }
   const created = Math.floor(state.startTime.getTime() / 1000);
-  writeJSON(res, 200, { object: 'list', data: state.modelRegistry.getModels().map(m => ({ id: m, object: 'model', created, owned_by: 'Freebuff2Opencode', root: m, permission: [] })) });
+  writeJSON(res, 200, { object: 'list', data: state.modelRegistry.getModels().map(m => ({ id: m, object: 'model', created, owned_by: 'Free-Buff', root: m, permission: [] })) });
 }
 
 async function handleChatCompletions(req, res) {
@@ -504,6 +509,9 @@ async function proxyChatRequest(res, payload, requestedModel, writeError, writeU
         console.warn(`[ForeignClient] upstream downgraded request to ${actualResponseModel} (foreign_toolset hit) — signature tool missing from toolset`);
       }
       console.log(`[Response] model: ${actualResponseModel || actualModel}, completed in ${Date.now() - reqStart}ms (status: ${resp.status})`);
+      // The turn just consumed quota; drop the 30s snapshot cache so the next
+      // /healthz poll re-fetches instead of serving the pre-turn numbers.
+      tokenPool.invalidateQuotaSnapshot(token);
       setImmediate(() => {
         if (isGemini) finalizeRunChainGemini(client, token, run, messageId);
         else if (isBase3) finalizeRunChainSimple(client, token, run, messageId);
@@ -839,12 +847,6 @@ async function handleRequest(req, res) {
   }
 
   if (pathname === '/api/models' && req.method === 'GET') { writeJSON(res, 200, { models: state.modelRegistry.getModels(), model_metadata: state.modelRegistry.getAllModelMetadata() }); return; }
-
-  if (pathname === '/api/bg' && req.method === 'GET') {
-    try { const response = await fetch('https://peapix.com/bing/feed'); const data = await response.json(); const item = Array.isArray(data) ? data[0] : data; const imgUrl = item.fullUrl || item.imageUrl || item.url || ''; if (imgUrl) writeJSON(res, 200, { url: imgUrl }); else writeJSON(res, 404, { error: 'not found' }); }
-    catch (e) { writeJSON(res, 500, { error: e.message }); }
-    return;
-  }
 
   if (pathname === '/api/ads' && req.method === 'GET') {
     const token = (config.authTokens || [])[0];

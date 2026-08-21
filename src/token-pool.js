@@ -502,6 +502,13 @@ class TokenPool {
     }
   }
 
+  // Drop the cached quota snapshot (e.g. right after a chat turn consumed
+  // quota) so the next refreshQuotaSnapshot re-fetches instead of serving
+  // pre-turn numbers for up to QUOTA_CACHE_TTL_MS.
+  invalidateQuotaSnapshot(token) {
+    this.quotaCache.delete(token);
+  }
+
   async setLockedModel(token, model) {
     await this.withLock(async () => { this.lockedModels.set(token, model); });
   }

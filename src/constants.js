@@ -1,4 +1,4 @@
-// Immutable constants for the Freebuff2Opencode proxy.
+// Immutable constants for the Free-Buff proxy.
 // Version strings that change at runtime live in ./state.js (state.versions).
 
 const FREE_AGENTS_SOURCE_URL = 'https://raw.githubusercontent.com/CodebuffAI/codebuff/main/common/src/constants/free-agents.ts';

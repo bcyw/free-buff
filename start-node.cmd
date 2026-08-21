@@ -13,7 +13,7 @@ if exist "%CONFIG_FILE%" (
 title FREEBUFFProxy - Node.js Mode
 
 echo ==================================================
-echo  Freebuff2Opencode Proxy - Node.js Mode
+echo  Free-Buff Proxy - Node.js Mode
 echo  Enforces Node.js (ignores Bun)
 echo  http://localhost:%PORT%
 echo ==================================================
@@ -36,7 +36,7 @@ echo [3/5] Installing dependencies...
 call npm install --omit=dev
 if %ERRORLEVEL% neq 0 (
     echo [ERROR] npm install failed. Try running 'npm install' manually.
-    @if not defined OPENCODE_ATTACH timeout /t 10
+    @if not defined FREEBUFF_ATTACH timeout /t 10
     exit /b %ERRORLEVEL%
 )
 if exist "bun.lock" del /F /Q "bun.lock" >nul 2>&1

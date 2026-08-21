@@ -1,4 +1,4 @@
-// Freebuff2Opencode Proxy — entry point.
+// Free-Buff Proxy — entry point.
 //
 // Startup: load config -> refresh versions -> detect country -> model registry
 // -> validate tokens (with account-ban detection) ->
@@ -18,7 +18,7 @@ const { handleRequest, detectCountry } = require('./src/handlers');
 
 async function startServer() {
   console.log('╔═══════════════════════════════════════════════════════════════╗');
-  console.log('║  Freebuff2Opencode Proxy - Starting...                        ║');
+  console.log('║  Free-Buff Proxy - Starting...                                ║');
   console.log('╚═══════════════════════════════════════════════════════════════╝');
 
   try { state.config = loadConfig(); } catch (e) { console.error('Failed to load config:', e.message); process.exit(1); }
@@ -71,7 +71,7 @@ async function startServer() {
 
   const server = http.createServer(handleRequest);
   server.listen(port, '0.0.0.0', () => {
-    console.log(`\nFreebuff2Opencode Proxy on http://127.0.0.1:${port}`);
+    console.log(`\nFree-Buff Proxy on http://127.0.0.1:${port}`);
     console.log(`  Upstream: ${state.config.upstreamBaseURL}`);
     console.log(`  Models: ${state.modelRegistry.getModels().length}`);
     console.log(`  API keys: ${state.config.apiKeys.length > 0 ? state.config.apiKeys.length + ' (auth enabled)' : 'none (open access)'}`);

@@ -1,4 +1,4 @@
-# Freebuff2Opencode Proxy
+# Free-Buff Proxy
 
 OpenAI- 与 Anthropic-兼容的 HTTP 代理，前端对接 Codebuff 的免费 API（`www.codebuff.com`）。由 Go 版 [Freebuff2API](https://github.com/Quorinex/Freebuff2API) 翻译为 Node.js/Bun，线协议逐字节模仿**官方桌面 orchestrator**——上游按请求头、请求体结构、系统提示词和工具名做反滥用校验。
 
@@ -12,7 +12,7 @@ OpenAI- 与 Anthropic-兼容的 HTTP 代理，前端对接 Codebuff 的免费 AP
 - **动态模型注册表** — 从 GitHub 拉取官方模型/agent 映射，网络不可用时回退到硬编码表
 - **出口代理** — `UPSTREAM_PROXY` 支持 http/https/socks4/socks5，让访问 tier 按出口节点地区判定
 - **OAuth 登录** — 复刻官方 CLI issue+poll 流，登录后保存到项目 `.config/`（0600）
-- **仪表盘** — Liquid-glass UI：token/session 状态、逐模型配额、full/limited tier、OAuth、广告、国家显示
+- **仪表盘** — 零依赖自包含 UI（无 CDN/壁纸/外部请求）：token/session 状态、逐模型配额与重置倒计时、full/limited tier、OAuth、广告、国家显示
 - **状态兼容** — 以服务端 session 状态和 `availableHours` 为准，避免用过时的客户端模型 metadata 推断可用性
 - **客户端兼容** — OpenAI 响应会递归移除 provider 不兼容的 `reasoning_details` 字段，避免严格 SDK 解析失败
 - **HAR 风格指纹** — 浏览器兼容请求头（`Accept-Encoding`/`Connection`/`Host`/UA）过上游校验
@@ -38,7 +38,7 @@ src/                      # 全部逻辑（15 个 CommonJS 模块）
   util.js                 # 通用工具（防抖、别名、schema、流）
   oauth.js                # 官方登录流（CLI 模式 + HTTP handler）
   handlers.js             # HTTP 路由 + 聊天代理 + 国家检测
-dashboard.html            # Liquid-glass Web UI（服务在 /）
+dashboard.html            # 自包含 Web UI（服务在 /，零外部依赖）
 docs/                     # 逆向的线格式规格（改上游前必读）
 .config/                  # 运行时状态（config.json、sessions.json、tokens.json、credentials.json）
 ```
@@ -193,7 +193,6 @@ await fetch('http://127.0.0.1:3001/v1/messages', {
 | `POST` | `/api/ads/impression` | 广告曝光上报 |
 | `POST` | `/api/ads/click` | 广告点击上报 |
 | `GET` | `/api/streak` | 签到状态 |
-| `GET` | `/api/bg` | Bing 壁纸 |
 
 ## 警告
 

@@ -3,594 +3,380 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Freebuff2OpenCode 控制台</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <title>Free-Buff 控制台</title>
   <style>
+    /* Self-contained UI: no CDN, no wallpaper, no SVG glass filters.
+       Static gradient background + plain translucent cards — zero
+       per-frame GPU compositing and zero external requests. */
     :root {
-      --primary-color: #0d6efd;
-      --secondary-color: #6c757d;
-      --success-color: #32CD32;
-      --bs-success: #32CD32;
-      --bs-success-rgb: 50, 205, 50;
-      --danger-color: #dc3545;
+      --bg-0: #0b0f1a;
+      --card-bg: rgba(22, 27, 41, 0.82);
+      --card-border: rgba(255, 255, 255, 0.09);
+      --header-bg: rgba(13, 17, 28, 0.92);
+      --text: #e6edf3;
+      --text-dim: rgba(230, 237, 243, 0.62);
+      --accent: #58a6ff;
+      --success: #3fb950;
+      --warning: #d29922;
+      --danger: #f85149;
+      --radius: 10px;
     }
+    * { box-sizing: border-box; }
     body {
       margin: 0;
       min-height: 100vh;
       padding: 0;
-      background-color: #0d1117;
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", Roboto, sans-serif;
+      background:
+        radial-gradient(1100px 500px at 15% -5%, rgba(56, 97, 251, 0.14), transparent 60%),
+        radial-gradient(900px 480px at 90% 0%, rgba(46, 160, 67, 0.08), transparent 55%),
+        radial-gradient(800px 600px at 50% 110%, rgba(163, 113, 247, 0.07), transparent 60%),
+        var(--bg-0);
+      background-attachment: fixed;
     }
     .dashboard-container {
-      position: relative;
-      z-index: 10;
       max-width: 1200px;
       margin: 0 auto;
-      overflow-x: hidden;
+      padding: 12px 16px 40px;
     }
+    /* --- layout grid (replaces bootstrap row/col) --- */
+    .grid { display: grid; gap: 16px; margin-bottom: 16px; }
+    .grid-top { grid-template-columns: 2fr 1fr; }
+    .grid-main { grid-template-columns: 2fr 1fr; align-items: start; }
+    @media (max-width: 900px) {
+      .grid-top, .grid-main { grid-template-columns: 1fr; }
+    }
+    .stack { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+    /* --- card --- */
     .card {
-      position: relative;
-      border: none;
-      border-radius: var(--glass-radius, 12px);
-      margin-bottom: 20px;
-      background: transparent !important;
-    }
-    .glass-panel {
-      position: absolute;
-      inset: 0;
-      z-index: 0;
-      border-radius: inherit;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
       overflow: hidden;
-    }
-    .glass-panel::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      z-index: 1;
-      border-radius: inherit;
-      background-color: rgba(255, 255, 255, 0.08);
-      pointer-events: none;
-    }
-    .glass-panel::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      z-index: 0;
-      border-radius: inherit;
-      pointer-events: none;
-    }
-    .card-content {
-      position: relative;
-      z-index: 3;
-      border-radius: inherit;
-      overflow: hidden;
-      background: rgba(0, 0, 0, 0.1);
     }
     .card-header {
-      background: rgba(0, 0, 0, 0.2) !important;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 9px 14px;
+      background: rgba(255, 255, 255, 0.03);
+      border-bottom: 1px solid var(--card-border);
       font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      font-size: 14px;
-      color: white;
-      padding: 0.4rem 1.25rem;
-      position: relative;
-      z-index: 4;
-    }
-    .card-body {
-      padding: 0.5rem;
-      position: relative;
-      z-index: 4;
-      backdrop-filter: blur(13px) !important;
-      -webkit-backdrop-filter: blur(13px) !important;
-    }
-    .status-indicator {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      display: inline-block;
-      margin-right: 8px;
-    }
-    .status-online { background-color: var(--success-color); box-shadow: 0 0 10px var(--success-color); }
-    .status-offline { background-color: var(--danger-color); box-shadow: 0 0 10px var(--danger-color); }
-    .status-unknown { background-color: var(--secondary-color); }
-    .token-blurred {
-      filter: blur(5px);
-      transition: filter 0.2s ease;
-    }
-    .token-blurred:hover {
-      filter: blur(0) !important;
-    }
-    .btn-white-bg {
-      background: white;
-      border: 1px solid white;
-      color: #0d1117;
-    }
-    .btn-white-bg:hover {
-      background: rgba(255, 255, 255, 0.85);
-      border-color: white;
-      color: #0d1117;
-    }
-    .btn-outline-action {
-      border: 1px solid rgba(255, 255, 255, 0.8);
-      color: white;
-      background: transparent;
-    }
-    .btn-outline-action:hover {
-      background: rgba(255, 255, 255, 0.15);
-      border-color: white;
-      color: white;
-    }
-    .stats-card {
-      background: transparent;
-      border-radius: 12px;
-      padding: 0;
-      text-align: center;
-      position: relative;
-      z-index: 10;
-      backdrop-filter: blur(13px);
-      -webkit-backdrop-filter: blur(13px);
-    }
-    .stats-value {
-      font-size: 28px;
-      font-weight: 700;
-      color: white;
-    }
-    .stats-label {
-      font-size: 12px;
-      color: rgba(255, 255, 255, 0.8);
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-    .toast-container {
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      z-index: 1050;
-    }
-    .form-label {
-      font-weight: 600;
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: rgba(255, 255, 255, 0.9);
-      margin-bottom: 6px;
-    }
-    .form-control, .form-select {
-      display: block;
-      width: 100%;
-      background: rgba(255, 255, 255, 0.15);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      color: white;
-      padding: 0.375rem 0.75rem;
-      font-size: 1rem;
-      border-radius: 0.375rem;
-    }
-    .form-control:focus, .form-select:focus {
-      background: rgba(255, 255, 255, 0.2);
-      border-color: rgba(255, 255, 255, 0.4);
-      color: white;
-      outline: 0;
-      box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
-    }
-    .form-control::placeholder {
-      color: rgba(255, 255, 255, 0.6);
-    }
-    .text-muted {
-      color: rgba(255, 255, 255, 0.7) !important;
-    }
-    h4, h5, strong, .fw-medium {
-      color: white !important;
-    }
-    small {
-      color: rgba(255, 255, 255, 0.8) !important;
-    }
-    .collapsible-header {
+      font-size: 13px;
+      letter-spacing: 0.4px;
       cursor: pointer;
       user-select: none;
     }
-    .collapsible-header .toggle-icon {
-      transition: transform 0.2s ease;
-    }
-    .collapsible-header .toggle-icon.collapsed {
-      transform: rotate(-90deg);
-    }
-    .collapse-section {
-      transition: all 0.3s ease;
-    }
-    .collapse-section.collapsed {
-      display: none;
-    }
-    .pool-card {
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 8px;
-      padding: 12px;
-      margin-bottom: 10px;
-    }
-    .pool-card.locked {
-      border: 1px dashed rgba(0, 0, 0, 0.8);
-      background: rgba(0, 0, 0, 0.1);
-    }
-    .locked-model-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      margin-top: 8px;
-      padding: 4px 10px;
-      border: 1px dashed rgba(0, 0, 0, 0.8);
-      border-radius: 6px;
-      background: rgba(0, 0, 0, 0.15);
-      font-size: 0.78rem;
-      color: #000000;
+    .card-header .hd-left { display: flex; align-items: center; gap: 7px; min-width: 0; }
+    .card-header .badge {
       font-weight: 600;
+      cursor: default;
     }
-    .locked-model-badge .lock-icon {
-      font-size: 0.85rem;
-    }
-    .unlock-btn {
-      margin-left: 8px;
-      padding: 2px 10px;
-      border: 1px solid rgba(0, 0, 0, 0.8);
-      border-radius: 5px;
-      background: rgba(0, 0, 0, 0.2);
-      color: #000000;
-      font-size: 0.72rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-    .unlock-btn:hover {
-      background: rgba(0, 0, 0, 0.35);
-    }
-    .pool-header {
+    .card-body { padding: 12px 14px; }
+    .collapse-section.collapsed { display: none; }
+    .toggle-icon { display: inline-block; transition: transform 0.2s ease; color: var(--text-dim); }
+    .toggle-icon.collapsed { transform: rotate(-90deg); }
+
+    /* --- top bar --- */
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
       display: flex;
+      align-items: center;
       justify-content: space-between;
-      align-items: center;
-      margin-bottom: 8px;
-    }
-    .pool-name {
-      font-weight: 600;
-      color: #58a6ff;
-      font-size: 0.95rem;
-    }
-    .pool-status {
-      padding: 3px 10px;
-      border-radius: 10px;
-      font-size: 0.75rem;
-      font-weight: 600;
-    }
-    .quota-block {
-      margin-top: 10px;
-      border-top: 1px solid rgba(255, 255, 255, 0.08);
-      padding-top: 8px;
-    }
-    .quota-title {
-      font-size: 0.72rem;
-      font-weight: 600;
-      color: rgba(255, 255, 255, 0.55);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-bottom: 6px;
-    }
-    .quota-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 5px;
-      font-size: 0.78rem;
-    }
-    .quota-row .q-model {
-      flex: 0 0 150px;
-      color: #e6edf3;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .quota-row .q-bar {
-      flex: 1 1 auto;
-      height: 6px;
-      border-radius: 3px;
-      background: rgba(255, 255, 255, 0.08);
-      overflow: hidden;
-    }
-    .quota-row .q-bar-fill {
-      height: 100%;
-      border-radius: 3px;
-      background: linear-gradient(90deg, #58a6ff, #79c0ff);
-      transition: width 0.3s ease;
-    }
-    .quota-row .q-bar-fill.drained {
-      background: linear-gradient(90deg, #f85149, #ff7b72);
-    }
-    .quota-row .q-count {
-      flex: 0 0 52px;
-      text-align: right;
-      color: rgba(255, 255, 255, 0.7);
-      font-variant-numeric: tabular-nums;
-      white-space: nowrap;
-    }
-    .quota-row .q-count.drained {
-      color: #ff7b72;
-      font-weight: 600;
-    }
-    .quota-reset {
-      font-size: 0.7rem;
-      color: rgba(255, 255, 255, 0.4);
-      margin-top: 4px;
-    }
-    .quota-row.bound .q-model { font-weight: 600; color: #58a6ff; }
-    .quota-row .q-bar-fill.unlimited { background: rgba(255, 255, 255, 0.15); }
-    .quota-row .q-bar-fill.fresh { background: rgba(88, 166, 255, 0.25); width: 100% !important; }
-    .quota-row .q-count.unlimited { flex-basis: 72px; color: rgba(255, 255, 255, 0.45); }
-    .quota-row .q-count.fresh { flex-basis: 190px; color: rgba(88, 166, 255, 0.85); font-size: 0.68rem; }
-    .quota-row .q-count.unknown { flex-basis: 140px; color: rgba(255, 255, 255, 0.45); font-size: 0.68rem; }
-    .timezone-bar {
-      position: relative;
-      border-radius: 10px;
-      overflow: hidden;
+      padding: 10px 16px;
       margin-bottom: 16px;
+      background: var(--header-bg);
+      border-bottom: 1px solid var(--card-border);
+      backdrop-filter: blur(6px);
     }
+    .topbar h1 { margin: 0; font-size: 17px; font-weight: 700; }
+    .status-wrap { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+    .status-indicator {
+      width: 11px; height: 11px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .status-online { background-color: var(--success); box-shadow: 0 0 8px var(--success); }
+    .status-offline { background-color: var(--danger); box-shadow: 0 0 8px var(--danger); }
+    .status-unknown { background-color: #6e7681; }
+
+    /* --- stats tiles --- */
+    .stats-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .stats-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      text-align: center;
+      padding: 18px 10px;
+    }
+    .stats-value { font-size: 26px; font-weight: 700; }
+    .stats-label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+
+    /* --- timezone bar --- */
     .timezone-content {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
       gap: 8px;
-      padding: 14px 12px;
+      padding: 12px;
     }
-    @media (max-width: 768px) {
-      .timezone-content { grid-template-columns: repeat(2, 1fr); }
-    }
+    @media (max-width: 768px) { .timezone-content { grid-template-columns: repeat(2, 1fr); } }
     .tz-cell {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
+      display: flex; flex-direction: column; align-items: center;
       padding: 4px 6px;
       border-right: 1px solid rgba(255, 255, 255, 0.06);
       min-width: 0;
     }
     .tz-cell:last-child { border-right: none; }
-    .tz-name {
-      font-size: 0.7rem;
-      color: rgba(255, 255, 255, 0.55);
-      margin-bottom: 4px;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-      white-space: nowrap;
-    }
-    .tz-clock {
-      font-size: 1.35rem;
-      font-weight: 600;
-      color: #e6edf3;
-      font-variant-numeric: tabular-nums;
-      letter-spacing: 0.04em;
-    }
-    .tz-meta {
-      font-size: 0.66rem;
-      color: rgba(255, 255, 255, 0.42);
-      margin-top: 4px;
-      text-align: center;
-      white-space: nowrap;
-    }
-    .tz-meta.reset-soon { color: #f0883e; }
+    .tz-name { font-size: 0.68rem; color: var(--text-dim); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
+    .tz-clock { font-size: 1.3rem; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: 0.04em; }
+    .tz-meta { font-size: 0.68rem; color: var(--text-dim); margin-top: 2px; }
+    .tz-meta.reset-soon { color: var(--warning); font-weight: 600; }
     .tz-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
       padding: 4px 12px;
       border-radius: 12px;
-      font-size: 0.78rem;
+      font-size: 0.75rem;
       font-weight: 600;
       margin-top: 4px;
     }
-    .tz-badge.available {
-      background: rgba(63, 185, 80, 0.18);
-      color: #3fb950;
-      border: 1px solid rgba(63, 185, 80, 0.35);
+    .tz-badge.available { background: rgba(63, 185, 80, 0.18); color: var(--success); border: 1px solid rgba(63, 185, 80, 0.35); }
+    .tz-badge.unavailable { background: rgba(248, 81, 73, 0.13); color: var(--danger); border: 1px solid rgba(248, 81, 73, 0.30); }
+
+    /* --- token pool cards --- */
+    .pool-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 10px;
     }
-    .tz-badge.unavailable {
-      background: rgba(248, 81, 73, 0.13);
-      color: #f85149;
-      border: 1px solid rgba(248, 81, 73, 0.30);
+    .pool-card.locked { border-style: dashed; border-color: var(--warning); background: rgba(210, 153, 34, 0.06); }
+    .pool-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 8px; }
+    .pool-name { font-weight: 600; color: var(--accent); font-size: 0.95rem; }
+    .pool-status { padding: 3px 10px; border-radius: 10px; font-size: 0.75rem; font-weight: 600; white-space: nowrap; }
+    .locked-model-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      margin-top: 8px; padding: 4px 10px;
+      border: 1px dashed var(--warning);
+      border-radius: 6px;
+      background: rgba(210, 153, 34, 0.1);
+      font-size: 0.78rem;
+      color: #e3b341;
+      font-weight: 600;
     }
+    .unlock-btn {
+      margin-left: 8px; padding: 2px 10px;
+      border: 1px solid var(--warning);
+      border-radius: 5px;
+      background: transparent;
+      color: #e3b341;
+      font-size: 0.72rem; font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+    .unlock-btn:hover { background: rgba(210, 153, 34, 0.2); }
+
+    /* --- quota block --- */
+    .quota-block { margin-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 8px; }
+    .quota-title { font-size: 0.72rem; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+    .quota-reset-live { font-size: 0.72rem; font-weight: 600; color: rgba(230, 237, 243, 0.78); margin-bottom: 6px; }
+    .quota-reset { font-size: 0.7rem; color: var(--text-dim); margin-top: 4px; }
+    .quota-row { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; font-size: 0.78rem; }
+    .quota-row .q-model { flex: 0 0 150px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .quota-row.bound .q-model { font-weight: 600; color: var(--accent); }
+    .quota-row .q-bar { flex: 1 1 auto; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+    .quota-row .q-bar-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #58a6ff, #79c0ff); transition: width 0.3s ease; }
+    .quota-row .q-bar-fill.drained { background: linear-gradient(90deg, #f85149, #ff7b72); }
+    .quota-row .q-bar-fill.fresh { background: rgba(88, 166, 255, 0.25); width: 100% !important; }
+    .quota-row .q-count { flex: 0 0 auto; text-align: right; color: var(--text-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .quota-row .q-count.drained { color: #ff7b72; font-weight: 600; }
+    .quota-row .q-count.unknown { color: var(--text-dim); font-size: 0.68rem; }
+
+    /* --- badges / misc --- */
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      vertical-align: middle;
+    }
+    .badge.bg-success { background: rgba(35, 134, 54, 0.85); color: #fff; }
+    .badge.bg-warning { background: rgba(210, 153, 34, 0.85); color: #14171c; }
+    .badge.bg-secondary { background: rgba(110, 118, 129, 0.6); color: #fff; }
+    .badge.bg-primary { background: rgba(31, 111, 235, 0.85); color: #fff; }
+    .token-blurred { filter: blur(5px); transition: filter 0.2s ease; }
+    .token-blurred:hover { filter: blur(0) !important; }
+    .text-muted { color: var(--text-dim) !important; }
+    small { color: rgba(230, 237, 243, 0.75); }
+    .mono { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+
+    /* --- buttons --- */
+    button, .btn {
+      font-family: inherit;
+      cursor: pointer;
+      border-radius: 6px;
+      font-size: 0.82rem;
+      padding: 6px 14px;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+    .btn-white-bg { background: #e6edf3; border: 1px solid #e6edf3; color: #0d1117; font-weight: 600; }
+    .btn-white-bg:hover { background: #fff; }
+    .btn-outline-action { border: 1px solid rgba(240, 246, 252, 0.25); color: var(--text); background: transparent; }
+    .btn-outline-action:hover { background: rgba(255, 255, 255, 0.08); border-color: rgba(240, 246, 252, 0.5); }
+    .btn-sm { padding: 4px 10px; font-size: 0.76rem; }
+    .btn-block { width: 100%; }
+    .actions-grid { display: grid; gap: 8px; }
+
+    /* --- forms --- */
+    .form-label { font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dim); margin-bottom: 4px; display: block; }
+    .form-control {
+      display: block; width: 100%;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: var(--text);
+      padding: 6px 10px;
+      font-size: 0.86rem;
+      font-family: inherit;
+      border-radius: 6px;
+    }
+    .form-control:focus { outline: none; border-color: var(--accent); background: rgba(255, 255, 255, 0.09); }
+    .form-control::placeholder { color: rgba(230, 237, 243, 0.45); }
+    .cfg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .cfg-grid .span2 { grid-column: span 2; }
+    .switch-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 0.84rem; color: var(--text-dim); cursor: pointer; }
+    .switch-row input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+    .env-item { margin-bottom: 10px; }
+    .env-item .v { font-weight: 600; margin-top: 2px; }
+
+    /* --- models --- */
     .model-tag {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 12px;
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 10px;
       border-radius: 6px;
       cursor: pointer;
-      border: 1px solid rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.12);
       background: rgba(255, 255, 255, 0.03);
-      opacity: 0.5;
+      opacity: 0.55;
       user-select: none;
-      transition: all 0.2s ease;
+      transition: opacity 0.15s ease, border-color 0.15s ease;
       margin: 3px;
     }
-    .model-tag.enabled {
-      border-color: rgba(50, 205, 50, 0.3);
-      background: rgba(50, 205, 50, 0.1);
-      opacity: 1;
-    }
-    .model-tag:hover { opacity: 0.8; }
-    .model-tag.enabled:hover { opacity: 1; }
-    .model-tag-name {
-      font-size: 11px;
-      font-weight: 600;
-      color: white;
-      white-space: nowrap;
-    }
-    .model-tag-id {
-      font-size: 9px;
-      color: rgba(255, 255, 255, 0.5);
-      white-space: nowrap;
-    }
-    .model-tag input[type="checkbox"] {
-      pointer-events: none;
-    }
-    .ad-card {
-      padding: 0 .5rem;
-      position: relative;
-      cursor: default;
-      flex-grow: 1;
-      display: flex;
-      flex-direction: column;
-    }
-    .ad-glass-box {
-      display: flex;
-      align-items: stretch;
-      gap: 0;
-      flex: 1;
-      min-height: 0;
-      width: 100%;
-    }
+    .model-tag.enabled { border-color: rgba(63, 185, 80, 0.4); background: rgba(63, 185, 80, 0.08); opacity: 1; }
+    .model-tag:hover { opacity: 0.85; }
+    .model-tag-name { font-size: 11px; font-weight: 600; white-space: nowrap; }
+    .model-tag-id { font-size: 9px; color: var(--text-dim); white-space: nowrap; }
+    .model-tag input[type="checkbox"] { pointer-events: none; accent-color: var(--success); }
+
+    /* --- ads --- */
+    .ad-card { position: relative; display: flex; flex-direction: column; }
+    .ad-header-bar { position: absolute; top: 4px; left: 50%; transform: translateX(-50%); z-index: 10; pointer-events: none; }
+    .ad-header-bar .ad-label { font-size: 9px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
+    .ad-glass-box { display: flex; align-items: stretch; gap: 4px; flex: 1; min-height: 0; width: 100%; }
     .ad-glass-inner {
-      flex: 1;
-      min-width: 0;
-      min-height: 0;
-      position: relative;
-      overflow: hidden;
-      border-radius: 12px;
-      background: rgba(255,255,255,0.5);
-      border: 1px solid rgba(255,255,255,0.15);
+      flex: 1; min-width: 0; min-height: 0;
+      position: relative; overflow: hidden;
+      border-radius: 8px;
+      background: rgba(230, 237, 243, 0.92);
+      border: 1px solid var(--card-border);
       padding: 10px 12px;
-      backdrop-filter: blur(13px);
-      -webkit-backdrop-filter: blur(13px);
     }
     .ad-arrow {
-      flex-shrink: 0;
-      width: 32px;
-      border-radius: 12px;
-      background: rgba(255,255,255,0.15);
-      border: none;
-      color: rgba(0,0,0,0.35);
-      font-size: 16px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: color 0.15s ease, background 0.15s ease;
-      padding: 0;
-      line-height: 1;
-      backdrop-filter: blur(13px);
-      -webkit-backdrop-filter: blur(13px);
+      flex-shrink: 0; width: 30px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--card-border);
+      color: var(--text-dim);
+      font-size: 15px;
+      display: flex; align-items: center; justify-content: center;
+      padding: 0; line-height: 1;
     }
-    .ad-arrow:hover {
-      color: rgba(0,0,0,0.7);
+    .ad-arrow:hover { color: var(--text); background: rgba(255, 255, 255, 0.12); }
+    #adSlidesContainer { display: grid; }
+    #adSlidesContainer > * { grid-row: 1; grid-column: 1; }
+    .ad-slide { opacity: 0; pointer-events: none; visibility: hidden; }
+    .ad-slide.active { opacity: 1; pointer-events: auto; visibility: visible; }
+    .ad-dot { cursor: pointer; padding: 4px; display: inline-block; }
+    .ad-dot .dot-indicator { width: 6px; height: 6px; border-radius: 50%; background: rgba(255, 255, 255, 0.2); display: block; transition: background 0.2s ease, transform 0.2s ease; }
+    .ad-dot.active .dot-indicator { background: rgba(230, 237, 243, 0.8); transform: scale(1.3); }
+    .ad-dots { display: flex; justify-content: center; gap: 4px; margin-top: 6px; }
+
+    /* --- oauth --- */
+    .input-group { display: flex; gap: 6px; }
+    .input-group .form-control { flex: 1; min-width: 0; }
+    .oauth-progress { height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.08); overflow: hidden; margin-top: 10px; }
+    .oauth-progress .bar { height: 100%; width: 100%; background: var(--accent); animation: slide 1.2s ease-in-out infinite alternate; }
+    @keyframes slide { from { transform: translateX(-30%); } to { transform: translateX(30%); } }
+    .center-note { text-align: center; padding: 14px 0; color: var(--text-dim); }
+
+    /* --- toast --- */
+    .toast-container { position: fixed; top: 20px; right: 20px; z-index: 1050; display: flex; flex-direction: column; gap: 8px; }
+    .toast-item {
+      padding: 10px 16px;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 0.84rem;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+      animation: toastIn 0.2s ease;
     }
-    .ad-arrow-left { margin-right: 4px; }
-    .ad-arrow-right { margin-left: 4px; }
-    #adSlidesContainer {
-      display: grid;
-    }
-    #adSlidesContainer > * {
-      grid-row: 1;
-      grid-column: 1;
-    }
-    .ad-slide {
-      opacity: 0;
-      pointer-events: none;
-      visibility: hidden;
-    }
-    .ad-slide.active {
-      opacity: 1;
-      pointer-events: auto;
-      visibility: visible;
-    }
-    .ad-dot {
-      cursor: pointer;
-      padding: 4px;
-    }
-    .ad-dot .dot-indicator {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: rgba(0,0,0,0.2);
-      transition: background 0.2s ease, transform 0.2s ease;
-    }
-    .ad-dot.active .dot-indicator {
-      background: rgba(0,0,0,0.7);
-      transform: scale(1.3);
-    }
-    .ad-header-bar {
-      position: absolute;
-      top: 2px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 10;
-      pointer-events: none;
-    }
-    .ad-header-bar .ad-label {
-      font-size: 9px;
-      color: rgba(255,255,255,0.7);
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
+    .toast-item.success { background: rgba(35, 134, 54, 0.95); }
+    .toast-item.danger { background: rgba(196, 49, 74, 0.95); }
+    .toast-item.info { background: rgba(31, 111, 235, 0.95); }
+    .toast-item.warning { background: rgba(154, 106, 0, 0.95); }
+    @keyframes toastIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: none; } }
+
+    .empty-state { text-align: center; padding: 24px 0; }
+    .empty-state .icon { font-size: 2rem; opacity: 0.5; }
   </style>
 </head>
 <body>
-  <svg style="position:absolute;overflow:hidden;width:0;height:0" color-interpolation-filters="sRGB">
-    <defs id="glass-defs"></defs>
-  </svg>
+  <div class="topbar">
+    <h1>⚡ Free-Buff 控制台</h1>
+    <div class="status-wrap">
+      <span id="statusIndicator" class="status-indicator status-unknown"></span>
+      <span id="statusText">检查中...</span>
+    </div>
+  </div>
 
-  <div class="container pt-2">
-  <div class="row justify-content-center">
-  <div class="dashboard-container col-11">
-    <div class="card sticky-top p-0" style="top:0;z-index:100" data-glass>
-      <div class="glass-panel"></div>
-      <div class="card-content px-2">
-        <div class="d-flex justify-content-between align-items-center">
-          <div>
-            <h4 class="mb-0"><i class="bi bi-lightning-charge-fill me-2"></i>Freebuff2OpenCode 控制台</h4>
-          </div>
-          <div class="text-end">
-            <div>
-              <span id="statusIndicator" class="status-indicator status-unknown"></span>
-              <span id="statusText" class="fw-medium">检查中...</span>
+  <div class="dashboard-container">
+    <div class="grid grid-top">
+      <div class="card ad-card">
+        <div class="ad-header-bar"><span class="ad-label" id="adCounterLabel">广告</span></div>
+        <div class="card-body">
+          <div class="ad-glass-box">
+            <button class="ad-arrow ad-arrow-left" onclick="prevAd()" title="上一条广告">‹</button>
+            <div class="ad-glass-inner">
+              <div id="adSlidesContainer"></div>
             </div>
+            <button class="ad-arrow ad-arrow-right" onclick="nextAd()" title="下一条广告">›</button>
           </div>
+          <div class="ad-dots" id="adDots"></div>
         </div>
+      </div>
+      <div class="stats-row">
+        <div class="stats-card"><div class="stats-value" id="totalModels">0</div><div class="stats-label">模型数</div></div>
+        <div class="stats-card"><div class="stats-value" id="countryCode">-</div><div class="stats-label">地区</div></div>
       </div>
     </div>
 
-    <div class="row text-center d-flex align-items-stretch mb-3">
-      <div class="col-12 col-md-8">
-        <div class="card h-100 d-flex flex-column" data-glass>
-          <div class="glass-panel"></div>
-          <div class="ad-card card-content flex-grow-1 d-flex flex-column">
-            <div class="ad-header-bar">
-              <span class="ad-label" id="adCounterLabel">广告</span>
-            </div>
-            <div class="ad-glass-box">
-              <button class="ad-arrow ad-arrow-left" onclick="prevAd()" title="上一条广告"><i class="bi bi-chevron-left"></i></button>
-              <div class="ad-glass-inner">
-                <div id="adSlidesContainer"></div>
-              </div>
-              <button class="ad-arrow ad-arrow-right" onclick="nextAd()" title="下一条广告"><i class="bi bi-chevron-right"></i></button>
-            </div>
-            <div id="adDots" style="display:flex;justify-content:center;gap:4px;margin-top:6px"></div>
-          </div>
-        </div>
-      </div>
-      <div class="col-6 col-md-2"><div class="stats-card card h-100 d-flex flex-column" data-glass><div class="card-content flex-grow-1 justify-content-center align-items-center d-flex flex-column" style="padding:10px"><div class="stats-value" id="totalModels">0</div><div class="stats-label">模型数</div></div></div></div>
-      <div class="col-6 col-md-2"><div class="stats-card card h-100 d-flex flex-column" data-glass><div class="card-content flex-grow-1 justify-content-center align-items-center d-flex flex-column" style="padding:10px"><div class="stats-value" id="countryCode">-</div><div class="stats-label">地区</div></div></div></div>
-    </div>
-
-    <div class="timezone-bar card" data-glass>
-      <div class="glass-panel"></div>
-      <div class="card-content timezone-content">
+    <div class="card" style="margin-bottom:16px">
+      <div class="timezone-content">
         <div class="tz-cell">
-          <div class="tz-name"><i class="bi bi-globe-asia-australia me-1"></i>北京时间</div>
+          <div class="tz-name">🌏 北京时间</div>
           <div class="tz-clock" id="tzBj">--:--:--</div>
           <div class="tz-meta" id="tzBjDate">-</div>
         </div>
         <div class="tz-cell">
-          <div class="tz-name"><i class="bi bi-clock-history me-1"></i>US Pacific (PT)</div>
+          <div class="tz-name">🕐 US Pacific (PT)</div>
           <div class="tz-clock" id="tzPt">--:--:--</div>
           <div class="tz-meta" id="tzPtMeta">重置倒计时 -</div>
         </div>
         <div class="tz-cell">
-          <div class="tz-name"><i class="bi bi-clock-history me-1"></i>US Eastern (ET)</div>
+          <div class="tz-name">🕐 US Eastern (ET)</div>
           <div class="tz-clock" id="tzEt">--:--:--</div>
           <div class="tz-meta" id="tzEtMeta">Fable 时段基准</div>
         </div>
@@ -602,198 +388,106 @@
       </div>
     </div>
 
-    <div class="row">
-      <div class="col-lg-8">
-        <div class="card" data-glass data-section="tokens">
-          <div class="glass-panel"></div>
-          <div class="card-content">
-            <div class="card-header collapsible-header d-flex justify-content-between align-items-center" onclick="toggleSection('tokens')">
-              <span>
-                <i class="bi bi-chevron-down toggle-icon me-1"></i>
-                <i class="bi bi-key-fill me-2"></i>认证令牌状态
-              </span>
-              <span id="tokenRemainingTime" style="font-size:0.85rem;font-weight:600;color:#58a6ff"></span>
+    <div class="grid grid-main">
+      <div class="stack">
+        <div class="card" data-section="tokens">
+          <div class="card-header" onclick="toggleSection('tokens')">
+            <span class="hd-left"><i class="toggle-icon" id="icon-tokens">▾</i>🔑 认证令牌状态</span>
+            <span style="display:flex;align-items:center;gap:8px">
+              <span id="tokenRemainingTime" style="font-size:0.82rem;font-weight:600;color:var(--accent)"></span>
               <span class="badge bg-secondary" id="tokenCountBadge">0</span>
-            </div>
-            <div class="card-body collapse-section" id="section-tokens">
-              <div id="tokenPoolsContainer"></div>
-              <small class="text-muted" style="display:block;margin-top:10px;">
-                令牌自动从 Freebuff CLI 检测（~/.config/manicode/credentials.json）
-              </small>
+            </span>
+          </div>
+          <div class="card-body collapse-section" id="section-tokens">
+            <div id="tokenPoolsContainer"></div>
+            <small class="text-muted" style="display:block;margin-top:10px;">
+              令牌自动从 Freebuff CLI 检测（~/.config/manicode/credentials.json）
+            </small>
+          </div>
+        </div>
+
+        <div class="card" data-section="config">
+          <div class="card-header" onclick="toggleSection('config')">
+            <span class="hd-left"><i class="toggle-icon collapsed" id="icon-config">▾</i>⚙️ 代理配置</span>
+          </div>
+          <div class="card-body collapse-section collapsed" id="section-config">
+            <div class="cfg-grid">
+              <div>
+                <label class="form-label">监听地址</label>
+                <input type="text" class="form-control" id="listenAddr" value=":3001" onchange="saveConfigValue('listenAddr', 'listenAddr')">
+              </div>
+              <div>
+                <label class="form-label">轮换间隔</label>
+                <input type="text" class="form-control" id="rotationInterval" value="6h" onchange="saveConfigValue('rotationInterval', 'rotationInterval')">
+              </div>
+              <div class="span2">
+                <label class="form-label">上游地址</label>
+                <input type="url" class="form-control" id="upstreamUrl" value="https://www.codebuff.com" onchange="saveConfigValue('upstreamUrl', 'upstreamBaseURL')">
+              </div>
+              <div>
+                <label class="form-label">超时</label>
+                <input type="text" class="form-control" id="requestTimeout" value="15m" onchange="saveConfigValue('requestTimeout', 'requestTimeout')">
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <div class="col-lg-4">
+      <div class="stack">
         <div id="oauthContainer" style="display:none"></div>
-        <div class="card" data-glass data-section="models">
-          <div class="glass-panel"></div>
-          <div class="card-content">
-            <div class="card-header collapsible-header d-flex justify-content-between align-items-center" onclick="toggleSection('models')">
-              <span>
-                <i class="bi bi-chevron-down toggle-icon me-1"></i>
-                <i class="bi bi-cpu-fill me-2"></i>可用模型
-              </span>
-              <span class="badge bg-secondary" id="modelCountBadge">0</span>
-            </div>
-            <div class="card-body collapse-section" id="section-models">
-              <div id="modelsContainer"></div>
+        <div class="card" data-section="models">
+          <div class="card-header" onclick="toggleSection('models')">
+            <span class="hd-left"><i class="toggle-icon" id="icon-models">▾</i>🖥️ 可用模型</span>
+            <span class="badge bg-secondary" id="modelCountBadge">0</span>
+          </div>
+          <div class="card-body collapse-section" id="section-models">
+            <div id="modelsContainer"></div>
+          </div>
+        </div>
+
+        <div class="card" data-section="actions">
+          <div class="card-header" onclick="toggleSection('actions')">
+            <span class="hd-left"><i class="toggle-icon collapsed" id="icon-actions">▾</i>⚡ 快捷操作</span>
+          </div>
+          <div class="card-body collapse-section collapsed" id="section-actions">
+            <div class="actions-grid">
+              <button class="btn btn-outline-action" onclick="checkHealth()">🩺 检查健康状态</button>
+              <button class="btn btn-outline-action" onclick="testConnection()">📡 测试连接</button>
+              <button class="btn btn-outline-action" onclick="refreshModels()">🔄 刷新模型</button>
             </div>
           </div>
         </div>
 
-        <div class="card" data-glass data-section="actions">
-          <div class="glass-panel"></div>
-          <div class="card-content">
-            <div class="card-header collapsible-header" onclick="toggleSection('actions')">
-              <i class="bi bi-chevron-down toggle-icon collapsed me-1"></i>
-              <i class="bi bi-lightning-charge-fill me-2"></i>快捷操作
-            </div>
-            <div class="card-body collapse-section collapsed" id="section-actions">
-              <div class="d-grid gap-2">
-                <button class="btn btn-outline-action" onclick="checkHealth()"><i class="bi bi-activity me-2"></i>检查健康状态</button>
-                <button class="btn btn-outline-action" onclick="testConnection()"><i class="bi bi-wifi me-2"></i>测试连接</button>
-                <button class="btn btn-outline-action" onclick="refreshModels()"><i class="bi bi-arrow-clockwise me-2"></i>刷新模型</button>
-              </div>
-            </div>
+        <div class="card" data-section="env">
+          <div class="card-header" onclick="toggleSection('env')">
+            <span class="hd-left"><i class="toggle-icon collapsed" id="icon-env">▾</i>ℹ️ 环境信息</span>
           </div>
-        </div>
-
-        <div class="card" data-glass data-section="env">
-          <div class="glass-panel"></div>
-          <div class="card-content">
-            <div class="card-header collapsible-header" onclick="toggleSection('env')">
-              <i class="bi bi-chevron-down toggle-icon collapsed me-1"></i>
-              <i class="bi bi-info-circle-fill me-2"></i>环境信息
+          <div class="card-body collapse-section collapsed" id="section-env">
+            <div class="env-item">
+              <small class="text-muted">运行时</small>
+              <div class="v" id="runtimeInfo">-</div>
             </div>
-            <div class="card-body collapse-section collapsed" id="section-env">
-              <div class="mb-2">
-                <small class="text-muted">运行时</small>
-                <div class="fw-medium" id="runtimeInfo">-</div>
-              </div>
-              <div class="mb-2">
-                <small class="text-muted">启动时间</small>
-                <div class="fw-medium" id="startedAt">-</div>
-              </div>
-
-              <div class="mb-2">
-                <div class="form-check form-switch">
-                  <input class="form-check-input" type="checkbox" id="wallpaperToggle" onchange="toggleWallpaper()">
-                  <label class="form-check-label text-muted" for="wallpaperToggle" style="cursor:pointer">启用壁纸</label>
-                </div>
-              </div>
-              <div class="mb-2">
-                <div class="form-check form-switch">
-                  <input class="form-check-input" type="checkbox" id="adsToggleEnv" checked onchange="toggleAds(this.checked)">
-                  <label class="form-check-label text-muted" for="adsToggleEnv" style="cursor:pointer">显示广告</label>
-                </div>
-              </div>
-              <div class="mb-2">
-                <div class="form-check form-switch">
-                  <input class="form-check-input" type="checkbox" id="blurTokensEnv" onchange="toggleBlurTokens(this.checked)">
-                  <label class="form-check-label text-muted" for="blurTokensEnv" style="cursor:pointer">隐私模式（令牌打码）</label>
-                </div>
-              </div>
+            <div class="env-item">
+              <small class="text-muted">启动时间</small>
+              <div class="v" id="startedAt">-</div>
             </div>
-          </div>
-        </div>
-
-        <div class="card" data-glass data-section="config">
-          <div class="glass-panel"></div>
-          <div class="card-content">
-            <div class="card-header collapsible-header" onclick="toggleSection('config')">
-              <i class="bi bi-chevron-down toggle-icon collapsed me-1"></i>
-              <i class="bi bi-gear-fill me-2"></i>代理配置
-            </div>
-            <div class="card-body collapse-section collapsed" id="section-config">
-              <form id="configForm">
-                <div class="row">
-                  <div class="col-6 mb-2">
-                    <label class="form-label" style="font-size:10px;margin-bottom:2px">监听地址</label>
-                    <input type="text" class="form-control form-control-sm" id="listenAddr" value=":3001" onchange="saveConfigValue('listenAddr', 'listenAddr')">
-                  </div>
-                  <div class="col-6 mb-2">
-                    <label class="form-label" style="font-size:10px;margin-bottom:2px">轮换间隔</label>
-                    <input type="text" class="form-control form-control-sm" id="rotationInterval" value="6h" onchange="saveConfigValue('rotationInterval', 'rotationInterval')">
-                  </div>
-                </div>
-                <div class="row">
-                  <div class="col-8 mb-2">
-                    <label class="form-label" style="font-size:10px;margin-bottom:2px">上游地址</label>
-                    <input type="url" class="form-control form-control-sm" id="upstreamUrl" value="https://www.codebuff.com" onchange="saveConfigValue('upstreamUrl', 'upstreamBaseURL')">
-                  </div>
-                  <div class="col-4 mb-2">
-                    <label class="form-label" style="font-size:10px;margin-bottom:2px">超时</label>
-                    <input type="text" class="form-control form-control-sm" id="requestTimeout" value="15m" onchange="saveConfigValue('requestTimeout', 'requestTimeout')">
-                  </div>
-                </div>
-              </form>
-            </div>
+            <label class="switch-row">
+              <input type="checkbox" id="adsToggleEnv" checked onchange="toggleAds(this.checked)">
+              显示广告
+            </label>
+            <label class="switch-row">
+              <input type="checkbox" id="blurTokensEnv" onchange="toggleBlurTokens(this.checked)">
+              隐私模式（令牌打码）
+            </label>
           </div>
         </div>
       </div>
     </div>
   </div>
-  </div>
-  </div>
 
   <div class="toast-container" id="toastContainer"></div>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
   <script>
-    const SURFACE_FNS = { convex_squircle: (x) => Math.pow(1 - Math.pow(1 - x, 4), 0.25) };
-    function calcRefractionProfile(t, b, hf, ior, s) {
-      s = s || 128; const eta = 1 / ior; const p = new Float64Array(s);
-      function refr(nx, ny) { const d = ny, k = 1 - eta * eta * (1 - d * d); if (k < 0) return null; const sq = Math.sqrt(k); return [-(eta * d + sq) * nx, eta - (eta * d + sq) * ny]; }
-      for (let i = 0; i < s; i++) { const x = i / s, y = hf(x), dx = x < 1 ? .0001 : -.0001, y2 = hf(x + dx), deriv = (y2 - y) / dx, mag = Math.sqrt(deriv * deriv + 1), ref = refr(-deriv / mag, -1 / mag); if (!ref) { p[i] = 0; continue; } p[i] = ref[0] * ((y * b + t) / ref[1]); }
-      return p;
-    }
-    function genDispMap(w, h, r, bw, prof, maxD) {
-      const c = document.createElement('canvas'); c.width = w; c.height = h; const ctx = c.getContext('2d'), img = ctx.createImageData(w, h), d = img.data;
-      for (let i = 0; i < d.length; i += 4) { d[i] = 128; d[i + 1] = 128; d[i + 2] = 0; d[i + 3] = 255; }
-      const rSq = r * r, r1Sq = (r + 1) ** 2, rBSq = Math.max(r - bw, 0) ** 2, wB = w - r * 2, hB = h - r * 2, S = prof.length;
-      for (let y1 = 0; y1 < h; y1++) for (let x1 = 0; x1 < w; x1++) { const x = x1 < r ? x1 - r : x1 >= w - r ? x1 - r - wB : 0, y = y1 < r ? y1 - r : y1 >= h - r ? y1 - r - hB : 0, dSq = x * x + y * y; if (dSq > r1Sq || dSq < rBSq) continue; const dist = Math.sqrt(dSq), fromSide = r - dist, op = dSq < rSq ? 1 : 1 - (dist - Math.sqrt(rSq)) / (Math.sqrt(r1Sq) - Math.sqrt(rSq)); if (op <= 0 || dist === 0) continue; const cos = x / dist, sin = y / dist, bi = Math.min(((fromSide / bw) * S) | 0, S - 1), disp = prof[bi] || 0, dX = (-cos * disp) / maxD, dY = (-sin * disp) / maxD, idx = (y1 * w + x1) * 4; d[idx] = (128 + dX * 127 * op + .5) | 0; d[idx + 1] = (128 + dY * 127 * op + .5) | 0; }
-      ctx.putImageData(img, 0, 0); return c.toDataURL();
-    }
-    function genSpecMap(w, h, r, bw, angle) {
-      angle = angle != null ? angle : Math.PI / 3; const c = document.createElement('canvas'); c.width = w; c.height = h; const ctx = c.getContext('2d'), img = ctx.createImageData(w, h), d = img.data; d.fill(0);
-      const rSq = r * r, r1Sq = (r + 1) ** 2, rBSq = Math.max(r - bw, 0) ** 2, wB = w - r * 2, hB = h - r * 2, sv = [Math.cos(angle), Math.sin(angle)];
-      for (let y1 = 0; y1 < h; y1++) for (let x1 = 0; x1 < w; x1++) { const x = x1 < r ? x1 - r : x1 >= w - r ? x1 - r - wB : 0, y = y1 < r ? y1 - r : y1 >= h - r ? y1 - r - hB : 0, dSq = x * x + y * y; if (dSq > r1Sq || dSq < rBSq) continue; const dist = Math.sqrt(dSq), fromSide = r - dist, op = dSq < rSq ? 1 : 1 - (dist - Math.sqrt(rSq)) / (Math.sqrt(r1Sq) - Math.sqrt(rSq)); if (op <= 0 || dist === 0) continue; const cos = x / dist, sin = -y / dist, dot = Math.abs(cos * sv[0] + sin * sv[1]), edge = Math.sqrt(Math.max(0, 1 - (1 - fromSide) ** 2)), coeff = dot * edge, col = (255 * coeff) | 0, alpha = (col * coeff * op) | 0, idx = (y1 * w + x1) * 4; d[idx] = col; d[idx + 1] = col; d[idx + 2] = col; d[idx + 3] = alpha; }
-      ctx.putImageData(img, 0, 0); return c.toDataURL();
-    }
-
-    function initLiquidGlass() {
-      const cards = document.querySelectorAll('[data-glass]'), defs = document.getElementById('glass-defs');
-      defs.innerHTML = '';
-      cards.forEach(c => { const p = c.querySelector('.glass-panel'); if (p) { p.style.backdropFilter = ''; p.style.webkitBackdropFilter = ''; } });
-      let fi = 0;
-      cards.forEach(card => {
-        const panel = card.querySelector('.glass-panel');
-        if (!panel) return;
-        requestAnimationFrame(() => {
-          const rect = card.getBoundingClientRect();
-          if (rect.width < 2 || rect.height < 2) return;
-          const w = Math.round(rect.width), h = Math.round(rect.height), radius = 12, bezelW = 30, glassThick = 60, ior = 2.5, blurAmt = 0.3, specOpacity = 0.5, specSat = 4;
-          const profile = calcRefractionProfile(glassThick, bezelW, SURFACE_FNS.convex_squircle, ior, 128);
-          const maxD = Math.max(...Array.from(profile).map(Math.abs)) || 1;
-          const dispUrl = genDispMap(w, h, radius, bezelW, profile, maxD);
-          const specUrl = genSpecMap(w, h, radius, bezelW * 2.5);
-          const filterId = 'lg-' + (fi++);
-          const filter = document.createElementNS('http://www.w3.org/2000/svg', 'filter');
-          filter.setAttribute('id', filterId); filter.setAttribute('x', '-20%'); filter.setAttribute('y', '-20%'); filter.setAttribute('width', '140%'); filter.setAttribute('height', '140%');
-          filter.innerHTML = `<feGaussianBlur in="SourceGraphic" stdDeviation="${blurAmt}" result="blurred_source"/><feImage href="${dispUrl}" x="0" y="0" width="${w}" height="${h}" result="disp_map"/><feDisplacementMap in="blurred_source" in2="disp_map" scale="${maxD * 1}" xChannelSelector="R" yChannelSelector="G" result="displaced"/><feColorMatrix in="displaced" type="saturate" values="${specSat}" result="displaced_sat"/><feImage href="${specUrl}" x="0" y="0" width="${w}" height="${h}" result="spec_layer"/><feComposite in="displaced_sat" in2="spec_layer" operator="in" result="spec_masked"/><feComponentTransfer in="spec_layer" result="spec_faded"><feFuncA type="linear" slope="${specOpacity}"/></feComponentTransfer><feBlend in="spec_masked" in2="displaced" mode="normal" result="with_sat"/><feBlend in="spec_faded" in2="with_sat" mode="normal"/>`;
-          defs.appendChild(filter);
-          panel.style.backdropFilter = `url(#${filterId})`;
-          panel.style.webkitBackdropFilter = `url(#${filterId})`;
-          void panel.offsetHeight;
-        });
-      });
-    }
-
-    let resizeTimer;
-    window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(initLiquidGlass, 150); });
-
     let proxyData = null;
     let config = {};
     let models = [];
@@ -805,36 +499,22 @@
     let adsEnabled = true;
     let remainingMsAtFetch = 0;
     let remainingMsTimestamp = 0;
-    let countryCodeSet = false;
     let adsList = [];
     let currentAdIdx = 0;
     let adImpressionSent = new Set();
 
     function showToast(message, type = 'info') {
       const toast = document.createElement('div');
-      toast.className = `toast align-items-center text-white bg-${type} border-0 show`;
-      toast.innerHTML = `<div class="d-flex"><div class="toast-body">${message}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>`;
+      toast.className = `toast-item ${type}`;
+      toast.textContent = message;
       document.getElementById('toastContainer').appendChild(toast);
       setTimeout(() => toast.remove(), 3000);
     }
 
-    async function fetchBingWallpaper() {
-      try {
-        const r = await fetch('/api/bg');
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        const data = await r.json();
-        if (data.url) {
-          document.body.style.backgroundImage = `url("${data.url}")`;
-          document.body.style.backgroundRepeat = 'no-repeat';
-          document.body.style.backgroundPosition = 'center';
-          document.body.style.backgroundSize = 'cover';
-          document.body.style.backgroundAttachment = 'fixed';
-          document.body.style.backgroundColor = '#0d1117';
-        }
-      } catch (e) {
-        document.body.style.backgroundImage = 'none';
-        document.body.style.backgroundColor = '#0d1117';
-      }
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text == null ? '' : String(text);
+      return div.innerHTML;
     }
 
     async function saveConfigValue(elementId, configKey) {
@@ -848,17 +528,6 @@
       } catch (e) {}
     }
 
-    async function toggleWallpaper() {
-      const checked = document.getElementById('wallpaperToggle').checked;
-      config.enableWallpaper = checked;
-      fetchBingWallpaper();
-      try {
-        const resp = await fetch('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enableWallpaper: checked }) });
-        const data = await resp.json();
-        if (data.success) { showToast('壁纸设置已保存', 'info'); config = data.config; }
-      } catch (e) {}
-    }
-
     function toggleBlurTokens(checked) {
       blurTokensEnabled = checked;
       renderTokenPools();
@@ -867,21 +536,10 @@
     function toggleAds(checked) {
       adsEnabled = checked;
       try { localStorage.setItem('adsEnabled', checked); } catch (e) {}
-      const toggleEnv = document.getElementById('adsToggleEnv');
-      if (toggleEnv) toggleEnv.checked = checked;
       if (!checked) {
-        const slidesContainer = document.getElementById('adSlidesContainer');
-        const dotsContainer = document.getElementById('adDots');
-        const counterLabel = document.getElementById('adCounterLabel');
-        if (slidesContainer) slidesContainer.innerHTML = '<div style="font-size:12px;color:rgba(13,17,23,0.4);text-align:center;padding:12px 0">广告已禁用</div>';
-        if (dotsContainer) dotsContainer.innerHTML = '';
-        if (counterLabel) counterLabel.textContent = '广告已关闭';
-        const arrows = document.querySelectorAll('.ad-arrow');
-        arrows.forEach(a => a.style.display = 'none');
+        renderAdInTokenCard();
       } else {
-        const arrows = document.querySelectorAll('.ad-arrow');
-        arrows.forEach(a => a.style.display = '');
-        fetchAds().then(() => { renderAdInTokenCard(); setTimeout(() => initLiquidGlass(), 100); });
+        fetchAds().then(renderAdInTokenCard);
       }
     }
 
@@ -920,37 +578,22 @@
 
     function rotateAd() {
       if (!adsEnabled || adsList.length === 0) return;
-      currentAdIdx = (currentAdIdx + 1) % adsList.length;
-      goToAdSlide(currentAdIdx);
+      goToAdSlide((currentAdIdx + 1) % adsList.length);
     }
 
     function prevAd() {
       if (!adsEnabled || adsList.length === 0) return;
-      currentAdIdx = (currentAdIdx - 1 + adsList.length) % adsList.length;
-      goToAdSlide(currentAdIdx);
+      goToAdSlide((currentAdIdx - 1 + adsList.length) % adsList.length);
     }
 
     function nextAd() {
       if (!adsEnabled || adsList.length === 0) return;
-      currentAdIdx = (currentAdIdx + 1) % adsList.length;
-      goToAdSlide(currentAdIdx);
+      goToAdSlide((currentAdIdx + 1) % adsList.length);
     }
 
     function goToAdSlide(idx) {
-      const slides = document.querySelectorAll('.ad-slide');
-      const dots = document.querySelectorAll('.ad-dot');
-      slides.forEach((s, i) => s.classList.toggle('active', i === idx));
-      dots.forEach((d, i) => d.classList.toggle('active', i === idx));
       currentAdIdx = idx;
-      const counterLabel = document.getElementById('adCounterLabel');
-      if (counterLabel && adsList.length > 0) {
-        counterLabel.textContent = '广告 ' + (idx + 1) + '/' + adsList.length;
-      }
-      const ad = adsList[idx];
-      if (ad && ad.adImpUrl && !adImpressionSent.has(idx)) {
-        adImpressionSent.add(idx);
-        fetch('/api/ads/impression', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ impUrl: ad.adImpUrl, mode: 'desktop' }) }).catch(() => {});
-      }
+      renderAdInTokenCard();
     }
 
     function reportAdClick(idx) {
@@ -963,18 +606,15 @@
       const slidesContainer = document.getElementById('adSlidesContainer');
       const dotsContainer = document.getElementById('adDots');
       const counterLabel = document.getElementById('adCounterLabel');
-      const arrows = document.querySelectorAll('.ad-arrow');
       if (!slidesContainer || !dotsContainer) return;
       if (!adsEnabled) {
-        slidesContainer.innerHTML = '<div style="font-size:12px;color:rgba(13,17,23,0.4);text-align:center;padding:12px 0">广告已禁用</div>';
+        slidesContainer.innerHTML = '<div style="font-size:12px;color:#7a828e;text-align:center;padding:12px 0">广告已禁用</div>';
         dotsContainer.innerHTML = '';
         if (counterLabel) counterLabel.textContent = '广告已关闭';
-        arrows.forEach(a => a.style.display = 'none');
         return;
       }
-      arrows.forEach(a => a.style.display = adsList.length > 1 ? '' : 'none');
       if (adsList.length === 0) {
-        slidesContainer.innerHTML = '<div style="font-size:12px;color:rgba(13,17,23,0.4);text-align:center;padding:12px 0">暂无广告</div>';
+        slidesContainer.innerHTML = '<div style="font-size:12px;color:#7a828e;text-align:center;padding:12px 0">暂无广告</div>';
         dotsContainer.innerHTML = '';
         if (counterLabel) counterLabel.textContent = '广告';
         return;
@@ -986,9 +626,9 @@
           inner = ad.adHtml;
         } else if (ad.adImage || ad.adTitle) {
           inner = `<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-            ${ad.adImage ? `<img src="${escapeHtml(ad.adImage)}" alt="${escapeHtml(ad.adTitle)}" style="width:40px;height:40px;border-radius:6px;object-fit:cover;flex-shrink:0;border:1px solid rgba(255,255,255,0.15)">` : ''}
+            ${ad.adImage ? `<img src="${escapeHtml(ad.adImage)}" alt="${escapeHtml(ad.adTitle)}" style="width:40px;height:40px;border-radius:6px;object-fit:cover;flex-shrink:0;border:1px solid rgba(0,0,0,0.1)">` : ''}
             <div style="flex:1;min-width:0">
-              ${ad.adSponsor ? `<div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:rgba(255,255,255,0.4);margin-bottom:1px;text-align:left">${escapeHtml(ad.adSponsor)}</div>` : ''}
+              ${ad.adSponsor ? `<div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:rgba(13,17,23,0.4);margin-bottom:1px;text-align:left">${escapeHtml(ad.adSponsor)}</div>` : ''}
               ${ad.adTitle ? `<div style="font-weight:600;font-size:12px;color:#0d1117;margin-bottom:1px;text-align:left">${escapeHtml(ad.adTitle)}</div>` : ''}
               ${ad.adDescription ? `<div style="font-size:10px;color:rgba(13,17,23,0.5);line-height:1.3;text-align:left">${escapeHtml(ad.adDescription)}</div>` : ''}
             </div>
@@ -1000,6 +640,12 @@
       }).join('');
       dotsContainer.innerHTML = adsList.map((_, i) => `<span class="ad-dot${i === currentAdIdx ? ' active' : ''}" onclick="goToAdSlide(${i})"><span class="dot-indicator"></span></span>`).join('');
       if (counterLabel) counterLabel.textContent = adsList.length > 1 ? '广告 ' + (currentAdIdx + 1) + '/' + adsList.length : '广告';
+      // Impression reporting for the newly active slide.
+      const ad = adsList[currentAdIdx];
+      if (ad && ad.adImpUrl && !adImpressionSent.has(currentAdIdx)) {
+        adImpressionSent.add(currentAdIdx);
+        fetch('/api/ads/impression', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ impUrl: ad.adImpUrl, mode: 'desktop' }) }).catch(() => {});
+      }
     }
 
     async function loadConfiguration() {
@@ -1016,7 +662,6 @@
           if (document.getElementById('upstreamUrl')) document.getElementById('upstreamUrl').value = cfg.upstreamBaseURL || 'https://www.codebuff.com';
           if (document.getElementById('rotationInterval')) document.getElementById('rotationInterval').value = cfg.rotationInterval || '6h';
           if (document.getElementById('requestTimeout')) document.getElementById('requestTimeout').value = cfg.requestTimeout || '15m';
-          if (document.getElementById('wallpaperToggle')) document.getElementById('wallpaperToggle').checked = cfg.enableWallpaper !== false;
         }
         const modelsResponse = await fetch('/api/models');
         const modelsData = await modelsResponse.json();
@@ -1030,8 +675,7 @@
 
     function renderQuotaBlock(quotaByModel, boundModel) {
       // 交叉展示：全部模型 + 服务端实时 quota 数据。
-      // 准确标签策略（按官方：
-      //   web/src/server/free-session/public-api.ts 的 RATE_LIMITS 表 + onlyUsedRateLimitsByModel）：
+      // 标签策略：
       //   1. 有 quota_by_model 数据且 limit > 0 → 进度条「已用 X/Y」
       //   2. 有 quota_by_model 数据且 limit == 0 → 「额度 0/0 · 当前不可用」
       //   3. 无 quota_by_model 数据 → 不伪造额度，显示「暂无实时配额」
@@ -1043,7 +687,6 @@
         ...Object.keys(qMap),
       ])];
       const tokens = (proxyData && proxyData.token_state) || [];
-      // Prefer this token card's model; retain a fallback for older callers.
       const boundFull = boundModel || tokens.map(p => p.model || p.locked_model).filter(Boolean)[0] || null;
       const boundShort = boundFull ? boundFull.split('/').pop() : null;
       const detail = tokens.find(p => (p.model || p.locked_model) === boundFull)?.session_detail
@@ -1056,12 +699,12 @@
         const meta = modelMetadata[m] || {};
         const q = qMap[m] || null;
         const isBound = (boundFull && m === boundFull) || (boundShort && shortName === boundShort);
-        const boundTag = isBound ? '<span class="badge bg-primary" style="font-size:0.55rem;margin-left:4px;vertical-align:middle">使用中</span>' : '';
+        const boundTag = isBound ? '<span class="badge bg-primary" style="font-size:0.55rem;margin-left:4px">使用中</span>' : '';
 
         if (closedModel && m === closedModel) {
           const label = meta.displayName || shortName;
           const reason = detail.availableHours ? `当前不可用 · ${detail.availableHours}` : '当前不可用';
-          return `<div class="quota-row${isBound ? ' bound' : ''} drained">
+          return `<div class="quota-row${isBound ? ' bound' : ''}">
             <span class="q-model" title="${escapeHtml(m)}">${escapeHtml(label)}${boundTag}</span>
             <span class="q-bar"><span class="q-bar-fill drained" style="width:100%"></span></span>
             <span class="q-count drained">${escapeHtml(reason)}</span>
@@ -1073,7 +716,7 @@
           const drained = used >= q.limit;
           const pct = Math.min(100, (used / q.limit) * 100);
           const label = meta.displayName || shortName;
-          return `<div class="quota-row${isBound ? ' bound' : ''}${drained ? ' drained' : ''}">
+          return `<div class="quota-row${isBound ? ' bound' : ''}">
             <span class="q-model" title="${escapeHtml(m)}">${escapeHtml(label)}${boundTag}</span>
             <span class="q-bar"><span class="q-bar-fill${drained ? ' drained' : ''}" style="width:${pct}%"></span></span>
             <span class="q-count${drained ? ' drained' : ''}">已用 ${used.toFixed(1)}/${q.limit}${drained ? ' · 已满' : ''}</span>
@@ -1081,7 +724,7 @@
         }
         if (q && typeof q.limit === 'number' && q.limit <= 0) {
           const label = meta.displayName || shortName;
-          return `<div class="quota-row${isBound ? ' bound' : ''} drained">
+          return `<div class="quota-row${isBound ? ' bound' : ''}">
             <span class="q-model" title="${escapeHtml(m)}">${escapeHtml(label)}${boundTag}</span>
             <span class="q-bar"><span class="q-bar-fill drained" style="width:100%"></span></span>
             <span class="q-count drained">额度 0/0 · 当前不可用</span>
@@ -1098,23 +741,52 @@
       }).join('');
 
       const tracked = Object.values(qMap);
+      // Reset line: earliest resetAt across server-reported quotas, rendered
+      // as a live countdown (element re-filled by updateQuotaResetCountdown
+      // every second). Placed at the TOP of the block — buried at the bottom
+      // of a long model list it was effectively invisible.
       const firstReset = tracked.find(q => q.resetAt)?.resetAt;
-      const resetLine = firstReset ? `<div class="quota-reset">重置于 ${new Date(firstReset).toLocaleString()}</div>` : '';
+      let resetLine = '';
+      if (firstReset) {
+        const ts = new Date(firstReset).getTime();
+        if (!Number.isNaN(ts)) {
+          if (ts > Date.now()) {
+            resetLine = `<div class="quota-reset-live">⏳ 配额重置：<span data-reset-at="${ts}"></span>（太平洋时间午夜）</div>`;
+          } else {
+            resetLine = `<div class="quota-reset-live">✅ 已过重置点 ${new Date(firstReset).toLocaleString()}（等待服务端刷新）</div>`;
+          }
+        }
+      }
       const totalUsed = tracked.filter(q => (q.recentCount ?? 0) > 0).length;
       const note = `<div class="quota-reset" style="margin-top:6px">仅服务端返回的 rateLimitsByModel 显示额度；未返回不代表可用或无限</div>`;
       const title = `模型配额（共 ${list.length} 个 · ${totalUsed} 个今日有消耗）`;
       if (rows === '') return '';
-      return `<div class="quota-block"><div class="quota-title">${title}</div>${rows}${resetLine}${note}</div>`;
+      return `<div class="quota-block"><div class="quota-title">${title}</div>${resetLine}${rows}${note}</div>`;
+    }
+
+    // Fill every [data-reset-at] with a live "Xh Ym Zs" countdown. Runs on the
+    // shared 1s tick; cheap because it only touches a handful of spans.
+    function updateQuotaResetCountdown() {
+      const els = document.querySelectorAll('[data-reset-at]');
+      for (const el of els) {
+        const left = (+el.dataset.resetAt) - Date.now();
+        if (left <= 0) { el.textContent = '已到重置时间'; continue; }
+        const totalSec = Math.floor(left / 1000);
+        const h = Math.floor(totalSec / 3600);
+        const m = Math.floor((totalSec % 3600) / 60);
+        const s = totalSec % 60;
+        el.textContent = `${h} 小时 ${m} 分 ${s} 秒后`;
+      }
     }
 
     function renderTokenPools() {
       const container = document.getElementById('tokenPoolsContainer');
       if (!proxyData || !proxyData.token_state || proxyData.token_state.length === 0) {
         container.innerHTML = `
-          <div class="text-center py-4">
-            <i class="bi bi-key" style="font-size:2rem;color:rgba(255,255,255,0.4)"></i>
-            <p class="mt-2 text-muted">未检测到令牌</p>
-            <button class="btn btn-sm btn-white-bg mt-2" onclick="startOAuth()"><i class="bi bi-shield-lock-fill me-1"></i>生成认证令牌</button>
+          <div class="empty-state">
+            <div class="icon">🔑</div>
+            <p class="text-muted">未检测到令牌</p>
+            <button class="btn btn-white-bg btn-sm" onclick="startOAuth()">生成认证令牌</button>
           </div>`;
         return;
       }
@@ -1129,27 +801,27 @@
         const tier = pool.access_tier || null;
         const tierLabel = tier === 'full' ? '完整版 (full)' : tier === 'limited' ? '受限版 (limited)' : (tier || '未知档位');
         const tierBadge = tier
-          ? `<span class="badge ${tier === 'full' ? 'bg-success' : 'bg-warning text-dark'}" style="font-size:0.7rem">${tierLabel}</span>`
+          ? `<span class="badge ${tier === 'full' ? 'bg-success' : 'bg-warning'}" style="font-size:0.7rem">${tierLabel}</span>`
           : '';
         const boundModel = pool.model || pool.locked_model || null;
         const boundLine = boundModel
-          ? `<div style="margin-top:6px;font-size:0.78rem;color:#58a6ff;">正在使用：<span class="${blurClass}">${escapeHtml(boundModel.split('/').pop())}</span></div>`
+          ? `<div style="margin-top:6px;font-size:0.78rem;color:var(--accent)">正在使用：<span class="${blurClass}">${escapeHtml(boundModel.split('/').pop())}</span></div>`
           : '';
         const lockedModel = pool.locked_model || null;
         const cardClass = lockedModel ? 'pool-card locked' : 'pool-card';
         let runsHtml = '';
         if (pool.runs && pool.runs.length > 0) {
-          runsHtml = pool.runs.map(run => `<div class="run-item"><span class="run-agent">${run.agent_id}</span><span class="${blurClass}">${run.run_id.substring(0, 8)}... | 运行中: ${run.inflight} | 请求: ${run.request_count}</span></div>`).join('');
+          runsHtml = pool.runs.map(run => `<div style="margin-top:4px;font-size:0.75rem;color:var(--text-dim)"><span class="mono">${escapeHtml(run.agent_id)}</span> <span class="${blurClass}">${escapeHtml(run.run_id.substring(0, 8))}... | 运行中: ${run.inflight} | 请求: ${run.request_count}</span></div>`).join('');
         }
         let sessionInfo = '';
         if (pool.session_instance_id) {
-          sessionInfo = `<div style="margin-top:8px;font-size:0.8rem;color:#ffffff;" class="${blurClass}">会话: ${pool.session_instance_id.substring(0,12)}...${pool.session_expires_at ? ' | 过期: ' + new Date(pool.session_expires_at).toLocaleTimeString() : ''}</div>`;
+          sessionInfo = `<div style="margin-top:8px;font-size:0.78rem;" class="${blurClass}">会话: ${escapeHtml(pool.session_instance_id.substring(0, 12))}...${pool.session_expires_at ? ' | 过期: ' + new Date(pool.session_expires_at).toLocaleTimeString() : ''}</div>`;
         }
-        const lockedBadge = lockedModel ? `<div class="locked-model-badge"><i class="bi bi-lock-fill lock-icon"></i><span>已锁定: ${escapeHtml(lockedModel)}</span><button class="unlock-btn" onclick="unlockSession()">解锁</button></div>` : '';
+        const lockedBadge = lockedModel ? `<div class="locked-model-badge">🔒<span>已锁定: ${escapeHtml(lockedModel)}</span><button class="unlock-btn" onclick="unlockSession()">解锁</button></div>` : '';
         const detailHtml = detail.message || detail.availableHours
-          ? `<div class="quota-reset" style="margin-top:8px;color:#ffcc66">${escapeHtml(detail.message || ('可用时段：' + detail.availableHours))}</div>` : '';
+          ? `<div class="quota-reset" style="margin-top:8px;color:#e3b341">${escapeHtml(detail.message || ('可用时段：' + detail.availableHours))}</div>` : '';
         const quotaHtml = renderQuotaBlock(pool.quota_by_model, pool.model || pool.locked_model);
-        return `<div class="${cardClass}"><div class="pool-header"><div class="pool-name">${pool.name} ${tierBadge}</div><div class="pool-status ${statusClass}">${statusText}</div></div>${boundLine}${runsHtml}${sessionInfo}${lockedBadge}${detailHtml}${quotaHtml}</div>`;
+        return `<div class="${cardClass}"><div class="pool-header"><div class="pool-name">${escapeHtml(pool.name)} ${tierBadge}</div><div class="pool-status"><span class="status-indicator ${statusClass}" style="width:8px;height:8px;margin-right:5px"></span>${statusText}</div></div>${boundLine}${runsHtml}${sessionInfo}${lockedBadge}${detailHtml}${quotaHtml}</div>`;
       }).join('');
     }
 
@@ -1183,7 +855,7 @@
       if (models.length === 0) { container.innerHTML = '<p class="text-muted">暂无可用模型</p>'; return; }
       container.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:3px">${models.map((model, idx) => {
         const isEnabled = enabledModels.includes(model);
-        return `<div class="model-tag${isEnabled ? ' enabled' : ''}" onclick="toggleModel(${idx})" id="model-${idx}"><input type="checkbox" class="form-check-input"${isEnabled ? ' checked' : ''}><div><div class="model-tag-name">${escapeHtml(getModelDisplayName(model))}</div><div class="model-tag-id" title="${escapeHtml(model)}">${escapeHtml(model)}</div></div></div>`;
+        return `<div class="model-tag${isEnabled ? ' enabled' : ''}" onclick="toggleModel(${idx})" id="model-${idx}"><input type="checkbox"${isEnabled ? ' checked' : ''}><div><div class="model-tag-name">${escapeHtml(getModelDisplayName(model))}</div><div class="model-tag-id" title="${escapeHtml(model)}">${escapeHtml(model)}</div></div></div>`;
       }).join('')}</div>`;
     }
 
@@ -1209,31 +881,39 @@
     async function startOAuth() {
       const container = document.getElementById('oauthContainer');
       container.style.display = 'block';
-      container.innerHTML = '<div class="text-center py-3"><div class="spinner-border text-primary" role="status"></div><p class="mt-2 text-muted">正在生成登录链接...</p></div>';
+      container.innerHTML = '<div class="card"><div class="card-body center-note">正在生成登录链接...</div></div>';
       try {
         const response = await fetch('/api/auth/start', { method: 'POST' });
         const data = await response.json();
         if (!data.loginUrl) throw new Error('未收到登录链接');
         oauthSession = data;
         container.innerHTML = `
-          <div class="mb-3">
-            <label class="form-label">步骤 1：打开登录链接</label>
-            <div class="input-group">
-              <input type="text" class="form-control" id="oauthLoginUrl" value="${escapeHtml(data.loginUrl)}" readonly>
-              <button class="btn btn-outline-action" onclick="copyToClipboard('oauthLoginUrl')">复制</button>
-              <a class="btn btn-white-bg" href="${escapeHtml(data.loginUrl)}" target="_blank">打开</a>
+          <div class="card">
+            <div class="card-body">
+              <div style="margin-bottom:12px">
+                <label class="form-label">步骤 1：打开登录链接</label>
+                <div class="input-group">
+                  <input type="text" class="form-control" id="oauthLoginUrl" value="${escapeHtml(data.loginUrl)}" readonly>
+                  <button class="btn btn-outline-action btn-sm" onclick="copyToClipboard('oauthLoginUrl')">复制</button>
+                  <a class="btn btn-white-bg btn-sm" href="${escapeHtml(data.loginUrl)}" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center">打开</a>
+                </div>
+              </div>
+              <div style="margin-bottom:12px">
+                <label class="form-label">步骤 2：粘贴回调链接</label>
+                <input type="text" class="form-control" id="oauthCallbackUrl" placeholder="登录后粘贴回调链接...">
+              </div>
+              <button class="btn btn-white-bg btn-block" onclick="verifyOAuth()">✔ 验证并获取令牌</button>
+              <div id="oauthProgress" class="oauth-progress" style="display:none"><div class="bar"></div></div>
             </div>
-          </div>
-          <div class="mb-3">
-            <label class="form-label">步骤 2：粘贴回调链接</label>
-            <input type="text" class="form-control" id="oauthCallbackUrl" placeholder="登录后粘贴回调链接...">
-          </div>
-          <button class="btn btn-white-bg w-100" onclick="verifyOAuth()"><i class="bi bi-check-circle me-2"></i>验证并获取令牌</button>
-          <div id="oauthProgress" style="display:none;margin-top:10px;"><div class="progress"><div class="progress-bar progress-bar-striped progress-bar-animated" style="width:100%"></div></div></div>`;
+          </div>`;
         startOAuthPolling();
       } catch (error) {
-        container.innerHTML = `<div class="text-center text-danger py-3"><i class="bi bi-exclamation-triangle" style="font-size:2rem"></i><p class="mt-2">${error.message}</p><button class="btn btn-sm btn-outline-action" onclick="startOAuth()">重试</button></div>`;
+        container.innerHTML = `<div class="card"><div class="card-body center-note"><div style="color:var(--danger)">⚠️ ${escapeHtml(error.message)}</div><button class="btn btn-outline-action btn-sm" style="margin-top:8px" onclick="startOAuth()">重试</button></div></div>`;
       }
+    }
+
+    function oauthDoneHtml(email) {
+      return `<div class="card"><div class="card-body center-note"><span class="badge bg-success">✔ 已认证</span><p class="text-muted" style="margin:8px 0 4px">令牌已添加！</p><div style="font-weight:600">${escapeHtml(email || '')}</div><button class="btn btn-outline-action btn-sm" style="margin-top:10px" onclick="startOAuth()">再生成一个</button></div></div>`;
     }
 
     function startOAuthPolling() {
@@ -1241,14 +921,13 @@
       let attempts = 0;
       oauthPollTimer = setInterval(async () => {
         attempts++;
-        if (attempts > 60) { clearInterval(oauthPollTimer); document.getElementById('oauthProgress').style.display = 'none'; showToast('登录超时', 'warning'); return; }
+        if (attempts > 60) { clearInterval(oauthPollTimer); const p = document.getElementById('oauthProgress'); if (p) p.style.display = 'none'; showToast('登录超时', 'warning'); return; }
         try {
           const response = await fetch('/api/auth/status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fingerprintId: oauthSession.fingerprintId, fingerprintHash: oauthSession.fingerprintHash, expiresAt: oauthSession.expiresAt }) });
           const data = await response.json();
           if (data.user && data.user.authToken) {
             clearInterval(oauthPollTimer);
-            const container = document.getElementById('oauthContainer');
-            container.innerHTML = `<div class="text-center py-3"><div class="badge bg-success mb-3"><i class="bi bi-check-circle me-1"></i>已认证</div><p class="text-muted">令牌已添加！</p><p class="fw-medium">${escapeHtml(data.user.email || data.user.name)}</p><button class="btn btn-sm btn-outline-action mt-2" onclick="startOAuth()">再生成一个</button></div>`;
+            document.getElementById('oauthContainer').innerHTML = oauthDoneHtml(data.user.email || data.user.name);
             showToast('认证令牌添加成功', 'success');
             loadConfiguration();
           }
@@ -1266,7 +945,7 @@
         const data = await response.json();
         if (data.user && data.user.authToken) {
           clearInterval(oauthPollTimer);
-          document.getElementById('oauthContainer').innerHTML = `<div class="text-center py-3"><div class="badge bg-success mb-3"><i class="bi bi-check-circle me-1"></i>已认证</div><p class="text-muted">令牌已添加！</p><p class="fw-medium">${escapeHtml(data.user.email || data.user.name)}</p><button class="btn btn-sm btn-outline-action mt-2" onclick="startOAuth()">再生成一个</button></div>`;
+          document.getElementById('oauthContainer').innerHTML = oauthDoneHtml(data.user.email || data.user.name);
           showToast('认证令牌添加成功', 'success');
           loadConfiguration();
         } else {
@@ -1281,10 +960,11 @@
     function copyToClipboard(elementId) {
       const el = document.getElementById(elementId);
       el.select();
-      document.execCommand('copy');
+      try { navigator.clipboard.writeText(el.value); } catch (_) { document.execCommand('copy'); }
       showToast('已复制到剪贴板', 'info');
     }
 
+    let _lastHealthSig = '';
     async function checkHealth(silent = false) {
       try {
         const response = await fetch('/healthz');
@@ -1293,8 +973,15 @@
           proxyData = data;
           document.getElementById('statusIndicator').className = 'status-indicator status-online';
           document.getElementById('statusText').textContent = '在线';
-          renderTokenPools();
-          updateStats();
+          // Rebuilding every token card (quota bars included) every 5s caused
+          // visible jank. Only touch the DOM when the payload actually changed.
+          const sig = JSON.stringify([data.token_state, data.models_count, data.valid_tokens]);
+          if (sig !== _lastHealthSig) {
+            _lastHealthSig = sig;
+            renderTokenPools();
+            updateStats();
+            updateQuotaResetCountdown();
+          }
           if (!silent) showToast('代理运行正常', 'success');
         } else {
           throw new Error('状态异常');
@@ -1327,6 +1014,7 @@
 
     function updateRemainingDisplay() {
       const el = document.getElementById('tokenRemainingTime');
+      if (!el) return;
       if (!remainingMsAtFetch || !remainingMsTimestamp) { el.textContent = ''; return; }
       const elapsed = Date.now() - remainingMsTimestamp;
       const left = Math.max(0, remainingMsAtFetch - elapsed);
@@ -1348,13 +1036,7 @@
       const tier = bestToken?.access_tier || '';
       const el = document.getElementById('countryCode');
       el.textContent = cc;
-      if (tier === 'limited') {
-        const small = document.createElement('small');
-        small.textContent = '（受限）';
-        small.style.marginLeft = '4px';
-        small.style.opacity = '0.7';
-        el.appendChild(small);
-      }
+      el.title = tier === 'limited' ? '受限档位 (limited)' : tier === 'full' ? '完整档位 (full)' : '';
       const activeToken = proxyData.token_state.find(t => t.remaining_ms && t.remaining_ms > 0);
       if (activeToken) {
         remainingMsAtFetch = activeToken.remaining_ms;
@@ -1364,35 +1046,22 @@
         remainingMsTimestamp = 0;
       }
       updateRemainingDisplay();
-      updateRemainingDisplay();
       if (proxyData.runtime) {
         document.getElementById('runtimeInfo').textContent = proxyData.runtime + ' v' + proxyData.runtime_version;
       }
     }
 
     function toggleSection(name) {
-      const body = document.getElementById('section-' + name);
-      const card = body.closest('[data-section]');
-      const icon = card.querySelector('.toggle-icon');
-      body.classList.toggle('collapsed');
-      icon.classList.toggle('collapsed');
-      setTimeout(() => initLiquidGlass(), 50);
-    }
-
-    function escapeHtml(text) {
-      const div = document.createElement('div');
-      div.textContent = text;
-      return div.innerHTML;
+      document.getElementById('section-' + name).classList.toggle('collapsed');
+      document.getElementById('icon-' + name).classList.toggle('collapsed');
     }
 
     // --- Timezone bar: live Beijing / US Pacific / US Eastern clocks + fable ---
     // The official Freebuff premium-quota period is "pacific_day", with reset at
     // America/Los_Angeles midnight. Fable (`claude-fable-5`) is only reachable
-    // during the "deployment hours" window 9am ET – 5pm PT (官方
-    // FREEBUFF_DEPLOYMENT_HOURS_LABEL). Showing all three zones side-by-side
-    // lets a user on a US proxy node reason about quota resets and fable
-    // availability in their local (Beijing) time, without doing the arithmetic
-    // by hand.
+    // during the "deployment hours" window 9am ET – 5pm PT. Showing all three
+    // zones side-by-side lets a user on a US proxy node reason about quota
+    // resets and fable availability in their local (Beijing) time.
     const _tzFmtCache = new Map();
     function tzParts(tz, fields) {
       const key = tz + '|' + fields.join(',');
@@ -1438,7 +1107,7 @@
       const total = (+obj.hour % 24) * 60 + (+obj.minute);
       const isWeekday = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].includes(weekday);
       const inNight = total >= 21 * 60 || total < 8 * 60;
-      return { available: isWeekday && inNight, weekday, hour: +obj.hour, minute: +obj.minute };
+      return { available: isWeekday && inNight };
     }
     function fableServerState() {
       const fable = 'anthropic/claude-fable-5';
@@ -1488,16 +1157,24 @@
       }
     }
 
+    // Single 1s tick for all per-second UI (session countdown, timezone
+    // clocks, quota reset countdown). Paused while the tab is hidden so a
+    // background tab burns no CPU.
+    function oneSecondTick() {
+      if (document.hidden) return;
+      updateRemainingDisplay();
+      updateTimezones();
+      updateQuotaResetCountdown();
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
-      initLiquidGlass();
       try { const cached = localStorage.getItem('adsEnabled'); if (cached === 'false') { adsEnabled = false; const t = document.getElementById('adsToggleEnv'); if (t) t.checked = false; } } catch (e) {}
-      loadConfiguration().then(() => { fetchBingWallpaper(); if (adsEnabled) fetchAds().then(() => { renderAdInTokenCard(); setTimeout(() => initLiquidGlass(), 100); }); else { renderAdInTokenCard(); setTimeout(() => initLiquidGlass(), 100); } });
+      loadConfiguration().then(() => { if (adsEnabled) fetchAds().then(renderAdInTokenCard); else renderAdInTokenCard(); });
       checkHealth();
       updateTimezones();
       setInterval(() => checkHealth(true), 5000);
       setInterval(() => rotateAd(), 30000);
-      setInterval(() => updateRemainingDisplay(), 1000);
-      setInterval(updateTimezones, 1000);
+      setInterval(oneSecondTick, 1000);
     });
   </script>
 </body>
